@@ -1036,6 +1036,19 @@ body {
     background: #c41430;
 }
 
+/* Home Section */
+.home-section {
+    margin-top: 24px;
+    padding: 16px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.home-section .section-title {
+    margin-bottom: 12px;
+}
+
 .add-chore-btn {
     width: 100%;
     padding: 16px;

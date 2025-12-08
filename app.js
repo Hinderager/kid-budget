@@ -421,6 +421,32 @@ function showScreen(screenId) {
 function updateHomeScreen() {
     document.getElementById('kylie-balance-preview').textContent = formatCurrency(getAvailableBalance('kylie'));
     document.getElementById('parker-balance-preview').textContent = formatCurrency(getAvailableBalance('parker'));
+
+    // Update home meal list
+    updateHomeMealList();
+}
+
+function updateHomeMealList() {
+    const mealsList = document.getElementById('home-meal-list');
+    if (!mealsList) return;
+
+    if (!appData.meals || appData.meals.length === 0) {
+        mealsList.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">🍽️</div>
+                <p>No meal ideas yet. Add some!</p>
+            </div>
+        `;
+    } else {
+        mealsList.innerHTML = appData.meals.map(m => {
+            const isSelected = currentRecipeMealId === m.id;
+            return `
+            <div class="meal-item ${isSelected ? 'selected' : ''}" data-meal-id="${m.id}" data-meal-name="${escapeHtml(m.name)}">
+                <span class="meal-name">${escapeHtml(m.name)}</span>
+                <button class="delete-meal-btn" onclick="event.stopPropagation(); handleDeleteMeal(${m.id})">×</button>
+            </div>
+        `}).join('');
+    }
 }
 
 function updateKidScreen() {
@@ -731,6 +757,7 @@ function handleSaveMeal() {
 
     saveData();
     updateManageScreen();
+    updateHomeMealList();
     closeModal('meal-modal');
 
     // Reset form
@@ -741,6 +768,7 @@ function handleDeleteMeal(mealId) {
     appData.meals = appData.meals.filter(m => m.id !== mealId);
     saveData();
     updateManageScreen();
+    updateHomeMealList();
 }
 
 function handleMealQuantityChange(mealId, delta) {
@@ -752,23 +780,30 @@ function handleMealQuantityChange(mealId, delta) {
     }
 }
 
-async function handleGetRecipe(mealId, mealName) {
+async function handleGetRecipe(mealId, mealName, isHomePage = false) {
     currentRecipeMealId = mealId;
     currentRecipeMealName = mealName;
 
-    // Show loading state
-    const recipeDisplay = document.getElementById('recipe-display');
-    const recipeTitle = document.getElementById('recipe-title');
-    const recipeContent = document.getElementById('recipe-content');
-    const tryAgainBtn = document.getElementById('try-again-btn');
+    // Get the right elements based on which page we're on
+    const prefix = isHomePage ? 'home-' : '';
+    const recipeDisplay = document.getElementById(prefix + 'recipe-display');
+    const recipeTitle = document.getElementById(prefix + 'recipe-title');
+    const recipeContent = document.getElementById(prefix + 'recipe-content');
+    const tryAgainBtn = document.getElementById(prefix + 'try-again-btn');
+
+    if (!recipeDisplay) return;
 
     recipeDisplay.classList.remove('hidden');
     recipeTitle.textContent = `Loading ${mealName} Recipe...`;
     recipeContent.innerHTML = '<div class="recipe-loading">🍳 Finding a great recipe...</div>';
-    tryAgainBtn.disabled = true;
+    if (tryAgainBtn) tryAgainBtn.disabled = true;
 
     // Update meal list to show selected state
-    updateManageScreen();
+    if (isHomePage) {
+        updateHomeMealList();
+    } else {
+        updateManageScreen();
+    }
 
     try {
         const response = await fetch(N8N_RECIPE_URL, {
@@ -800,12 +835,12 @@ async function handleGetRecipe(mealId, mealName) {
                     ${recipe.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
                 </ol>
             </div>
-            <div class="fred-meyer-products hidden" id="fred-meyer-products">
+            <div class="fred-meyer-products hidden" id="${prefix}fred-meyer-products">
                 <!-- Products will be loaded here -->
             </div>
         `;
 
-        tryAgainBtn.disabled = false;
+        if (tryAgainBtn) tryAgainBtn.disabled = false;
 
         // Scroll to recipe
         recipeDisplay.scrollIntoView({ behavior: 'smooth' });
@@ -813,24 +848,27 @@ async function handleGetRecipe(mealId, mealName) {
     } catch (error) {
         console.error('Recipe fetch error:', error);
         recipeContent.innerHTML = '<div class="recipe-error">Failed to load recipe. Please try again.</div>';
-        tryAgainBtn.disabled = false;
+        if (tryAgainBtn) tryAgainBtn.disabled = false;
     }
 }
 
-function handleTryAgain() {
+let isHomePageRecipe = false;
+
+function handleTryAgain(isHomePage = false) {
     if (currentRecipeMealId && currentRecipeMealName) {
-        handleGetRecipe(currentRecipeMealId, currentRecipeMealName);
+        handleGetRecipe(currentRecipeMealId, currentRecipeMealName, isHomePage);
     }
 }
 
-async function handleOrderCurrentMeal() {
+async function handleOrderCurrentMeal(isHomePage = false) {
     if (!currentRecipeIngredients || currentRecipeIngredients.length === 0) {
         alert('Please get a recipe first before ordering ingredients.');
         return;
     }
 
-    const orderBtn = document.getElementById('order-recipe-btn');
-    const productsDiv = document.getElementById('fred-meyer-products');
+    const prefix = isHomePage ? 'home-' : '';
+    const orderBtn = document.getElementById(prefix + 'order-btn') || document.getElementById('order-recipe-btn');
+    const productsDiv = document.getElementById(prefix + 'fred-meyer-products');
 
     orderBtn.textContent = 'Finding products...';
     orderBtn.disabled = true;
@@ -1451,9 +1489,27 @@ async function init() {
         }
     });
 
-    // Recipe action buttons
-    document.getElementById('try-again-btn').addEventListener('click', handleTryAgain);
-    document.getElementById('order-recipe-btn').addEventListener('click', handleOrderCurrentMeal);
+    // Recipe action buttons (manage screen)
+    document.getElementById('try-again-btn')?.addEventListener('click', () => handleTryAgain(false));
+    document.getElementById('order-recipe-btn')?.addEventListener('click', () => handleOrderCurrentMeal(false));
+
+    // Home page meal management
+    document.getElementById('home-add-meal-btn')?.addEventListener('click', () => openModal('meal-modal'));
+
+    // Home page meal list click handler
+    document.getElementById('home-meal-list')?.addEventListener('click', (e) => {
+        const mealItem = e.target.closest('.meal-item');
+        if (mealItem && !e.target.classList.contains('delete-meal-btn')) {
+            const mealId = parseInt(mealItem.dataset.mealId);
+            const mealName = mealItem.dataset.mealName;
+            isHomePageRecipe = true;
+            handleGetRecipe(mealId, mealName, true);
+        }
+    });
+
+    // Home page recipe action buttons
+    document.getElementById('home-try-again-btn')?.addEventListener('click', () => handleTryAgain(true));
+    document.getElementById('home-order-btn')?.addEventListener('click', () => handleOrderCurrentMeal(true));
 
     // Allowance changes
     document.getElementById('kylie-allowance').addEventListener('change', handleAllowanceChange);
