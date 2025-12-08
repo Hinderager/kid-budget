@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#6366f1">
+    <title>Family Budget</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div id="app">
+        <!-- Home Screen - Person Selection -->
+        <div id="home-screen" class="screen active">
+            <header class="header">
+                <h1>Family Budget</h1>
+            </header>
+            <main class="main-content">
+                <h2 class="section-title">Who's using the app?</h2>
+                <div class="person-grid">
+                    <button class="person-card kid" data-person="kylie">
+                        <div class="avatar">K</div>
+                        <span class="name">Kylie</span>
+                        <span class="balance" id="kylie-balance-preview">$0.00</span>
+                    </button>
+                    <button class="person-card kid" data-person="parker">
+                        <div class="avatar">P</div>
+                        <span class="name">Parker</span>
+                        <span class="balance" id="parker-balance-preview">$0.00</span>
+                    </button>
+                    <button class="person-card parent" data-person="mom">
+                        <div class="avatar">M</div>
+                        <span class="name">Mom</span>
+                        <span class="subtitle">Chores</span>
+                    </button>
+                    <button class="person-card parent" data-person="dad">
+                        <div class="avatar">D</div>
+                        <span class="name">Dad</span>
+                        <span class="subtitle">Chores</span>
+                    </button>
+                </div>
+                <button class="manage-btn" id="manage-chores-btn">
+                    <span class="icon">⚙️</span>
+                    Manage Chores & Settings
+                </button>
+            </main>
+        </div>
+
+        <!-- Kid Account Screen -->
+        <div id="kid-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" data-target="home-screen">←</button>
+                <h1 id="kid-name">Kylie</h1>
+                <div class="header-spacer"></div>
+            </header>
+            <main class="main-content">
+                <div class="balance-card">
+                    <span class="balance-label">Available Balance</span>
+                    <span class="balance-amount" id="kid-balance">$0.00</span>
+                    <span class="allowance-info" id="allowance-info">Allowance: $0/week</span>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="action-btn earn" id="add-earning-btn">
+                        <span class="icon">+</span>
+                        Add Earning
+                    </button>
+                    <button class="action-btn spend" id="add-expense-btn">
+                        <span class="icon">−</span>
+                        Add Expense
+                    </button>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="history">History</button>
+                    <button class="tab" data-tab="chores">My Chores</button>
+                </div>
+
+                <div class="tab-content" id="history-tab">
+                    <div class="transaction-list" id="transaction-list">
+                        <!-- Transactions will be populated here -->
+                    </div>
+                </div>
+
+                <div class="tab-content hidden" id="chores-tab">
+                    <div class="chore-list" id="kid-chore-list">
+                        <!-- Kid's chores will be populated here -->
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Parent Account Screen -->
+        <div id="parent-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" data-target="home-screen">←</button>
+                <h1 id="parent-name">Mom</h1>
+                <div class="header-spacer"></div>
+            </header>
+            <main class="main-content">
+                <h2 class="section-title">My Chores</h2>
+                <div class="chore-list" id="parent-chore-list">
+                    <!-- Parent's chores will be populated here -->
+                </div>
+            </main>
+        </div>
+
+        <!-- Manage Chores & Settings Screen -->
+        <div id="manage-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" data-target="home-screen">←</button>
+                <h1>Settings</h1>
+                <div class="header-spacer"></div>
+            </header>
+            <main class="main-content">
+                <section class="settings-section">
+                    <h2 class="section-title">Balance Adjustment</h2>
+                    <div class="balance-adjustment">
+                        <div class="adjustment-row">
+                            <span class="adjustment-name">Kylie</span>
+                            <span class="adjustment-balance" id="kylie-current-balance">$0.00</span>
+                            <div class="adjustment-controls">
+                                <div class="input-group">
+                                    <span class="currency">$</span>
+                                    <input type="number" id="kylie-adjustment" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <button class="adj-btn add" onclick="handleBalanceAdjustment('kylie', 'add')">+</button>
+                                <button class="adj-btn subtract" onclick="handleBalanceAdjustment('kylie', 'subtract')">−</button>
+                            </div>
+                        </div>
+                        <div class="adjustment-row">
+                            <span class="adjustment-name">Parker</span>
+                            <span class="adjustment-balance" id="parker-current-balance">$0.00</span>
+                            <div class="adjustment-controls">
+                                <div class="input-group">
+                                    <span class="currency">$</span>
+                                    <input type="number" id="parker-adjustment" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <button class="adj-btn add" onclick="handleBalanceAdjustment('parker', 'add')">+</button>
+                                <button class="adj-btn subtract" onclick="handleBalanceAdjustment('parker', 'subtract')">−</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">Weekly Allowance</h2>
+                    <div class="allowance-settings">
+                        <div class="allowance-input">
+                            <label>Kylie</label>
+                            <div class="input-group">
+                                <span class="currency">$</span>
+                                <input type="number" id="kylie-allowance" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="allowance-input">
+                            <label>Parker</label>
+                            <div class="input-group">
+                                <span class="currency">$</span>
+                                <input type="number" id="parker-allowance" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    <p class="hint">Allowance is automatically added every Sunday morning</p>
+                </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">Chores</h2>
+                    <div class="chore-grid-container">
+                        <table class="chore-grid" id="chore-grid">
+                            <thead>
+                                <tr>
+                                    <th class="chore-name-col">Chore</th>
+                                    <th class="person-col">Kylie</th>
+                                    <th class="person-col">Parker</th>
+                                    <th class="person-col">Dad</th>
+                                    <th class="person-col">Mom</th>
+                                    <th class="action-col"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="chore-grid-body">
+                                <!-- Chores will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="add-chore-btn" id="add-chore-btn">
+                        <span class="icon">+</span>
+                        Add New Chore
+                    </button>
+                </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">Options (Earning Opportunities)</h2>
+                    <div class="options-list" id="options-list">
+                        <!-- Options will be populated here -->
+                    </div>
+                    <button class="add-chore-btn" id="add-option-btn">
+                        <span class="icon">+</span>
+                        Add New Option
+                    </button>
+                </section>
+            </main>
+        </div>
+
+        <!-- Add Earning Modal -->
+        <div id="earning-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Earning</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <div class="input-group large">
+                            <span class="currency">$</span>
+                            <input type="number" id="earning-amount" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="earning-description" placeholder="What did you earn money for?">
+                    </div>
+                    <div class="form-group">
+                        <label>From Option?</label>
+                        <select id="earning-option">
+                            <option value="">Select an option (or enter custom amount)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-earning">Add Earning</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Expense Modal -->
+        <div id="expense-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Expense</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <div class="input-group large">
+                            <span class="currency">$</span>
+                            <input type="number" id="expense-amount" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>What was it for?</label>
+                        <input type="text" id="expense-description" placeholder="Describe the purchase">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-expense">Add Expense</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Chore Modal -->
+        <div id="chore-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="chore-modal-title">Add Chore</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Chore Name</label>
+                        <input type="text" id="chore-name" placeholder="e.g., Take out trash">
+                    </div>
+                    <div class="form-group">
+                        <label>Assigned To</label>
+                        <div class="assignee-toggles" id="assignee-toggles">
+                            <button class="assignee-toggle" data-person="mom">Mom</button>
+                            <button class="assignee-toggle" data-person="dad">Dad</button>
+                            <button class="assignee-toggle" data-person="kylie">Kylie</button>
+                            <button class="assignee-toggle" data-person="parker">Parker</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger hidden" id="delete-chore">Delete</button>
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-chore">Save Chore</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Option Modal -->
+        <div id="option-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Option</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Option Name</label>
+                        <input type="text" id="option-name" placeholder="e.g., Mow Lawn">
+                    </div>
+                    <div class="form-group">
+                        <label>Value</label>
+                        <div class="input-group">
+                            <span class="currency">$</span>
+                            <input type="number" id="option-value" min="0" step="0.50" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-option">Save Option</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
