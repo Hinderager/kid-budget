@@ -1247,9 +1247,37 @@ function openManageSavingsModal(goalId) {
     const progress = goal.targetAmount > 0 ? Math.min(100, (goal.savedAmount / goal.targetAmount) * 100) : 0;
     document.getElementById('manage-goal-progress').style.width = `${progress}%`;
 
+    document.getElementById('edit-goal-amount').value = goal.targetAmount;
     document.getElementById('savings-adjust-amount').value = '';
 
     openModal('manage-savings-modal');
+}
+
+function handleUpdateGoalAmount() {
+    if (!currentSavingsGoalId) return;
+
+    const newAmount = parseFloat(document.getElementById('edit-goal-amount').value);
+
+    if (!newAmount || newAmount <= 0) {
+        alert('Please enter a valid goal amount');
+        return;
+    }
+
+    const user = appData.users[currentPerson];
+    const goal = user.savingsGoals.find(g => g.id === currentSavingsGoalId);
+
+    if (!goal) return;
+
+    goal.targetAmount = newAmount;
+
+    saveData();
+    updateKidScreen();
+    updateHomeScreen();
+
+    // Update the modal display
+    document.getElementById('manage-goal-target').textContent = formatCurrency(goal.targetAmount);
+    const progress = goal.targetAmount > 0 ? Math.min(100, (goal.savedAmount / goal.targetAmount) * 100) : 0;
+    document.getElementById('manage-goal-progress').style.width = `${progress}%`;
 }
 
 function handleSavingsAdjust(action) {
@@ -1579,6 +1607,7 @@ async function init() {
     });
     document.getElementById('savings-add-btn').addEventListener('click', () => handleSavingsAdjust('add'));
     document.getElementById('savings-remove-btn').addEventListener('click', () => handleSavingsAdjust('remove'));
+    document.getElementById('save-goal-amount').addEventListener('click', handleUpdateGoalAmount);
     document.getElementById('delete-savings-goal').addEventListener('click', handleDeleteSavingsGoal);
 
     // Close modals

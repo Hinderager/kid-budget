@@ -1528,6 +1528,20 @@ body {
     color: var(--gray-600);
 }
 
+.goal-edit-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.goal-edit-controls .input-group {
+    flex: 1;
+}
+
+.goal-edit-controls .input-group input {
+    width: 100%;
+}
+
 .savings-adjust-controls {
     display: flex;
     align-items: center;
