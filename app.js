@@ -14,7 +14,7 @@ const N8N_ADD_TO_CART_URL = 'https://n8n.srv1041426.hstgr.cloud/webhook/add-to-c
 
 // Kroger OAuth Configuration
 const KROGER_CLIENT_ID = 'recipebuilder-bbc9g9sw';
-const KROGER_REDIRECT_URI = 'https://n8n.srv1041426.hstgr.cloud/webhook/kroger-oauth-callback';
+const KROGER_REDIRECT_URI = 'http://localhost:5500/callback.html';
 const KROGER_AUTH_URL = `https://api.kroger.com/v1/connect/oauth2/authorize?scope=cart.basic:write&response_type=code&client_id=${KROGER_CLIENT_ID}&redirect_uri=${encodeURIComponent(KROGER_REDIRECT_URI)}`;
 
 let currentRecipeMealId = null;
