@@ -21,6 +21,9 @@ let currentRecipeMealId = null;
 let currentRecipeMealName = null;
 let currentRecipeIngredients = [];
 let currentRecipeProducts = [];
+let currentRecipeData = null; // Store full recipe for saving
+let glutenFreeMode = false;
+let deselectedIngredients = new Set(); // Track ingredients user already has
 
 // Kroger Token Management
 function getKrogerToken() {
@@ -155,6 +158,7 @@ const defaultData = {
         { id: 1, name: 'Mow Lawn', value: 10.00 }
     ],
     meals: [],
+    savedRecipes: [],
     nextChoreId: 10,
     nextOptionId: 2,
     nextMealId: 1
@@ -214,6 +218,7 @@ function loadData() {
         if (!appData.options) appData.options = [{ id: 1, name: 'Mow Lawn', value: 10.00 }];
         if (!appData.nextOptionId) appData.nextOptionId = 2;
         if (!appData.meals) appData.meals = [];
+        if (!appData.savedRecipes) appData.savedRecipes = [];
         if (!appData.nextMealId) appData.nextMealId = 1;
         ['kylie', 'parker'].forEach(kid => {
             if (!appData.users[kid].lastAllowanceWeek) {
@@ -253,6 +258,7 @@ function ensureDataIntegrity() {
     if (!appData.options) appData.options = [{ id: 1, name: 'Mow Lawn', value: 10.00 }];
     if (!appData.nextOptionId) appData.nextOptionId = 2;
     if (!appData.meals) appData.meals = [];
+    if (!appData.savedRecipes) appData.savedRecipes = [];
     if (!appData.nextMealId) appData.nextMealId = 1;
     ['kylie', 'parker'].forEach(kid => {
         if (!appData.users[kid].lastAllowanceWeek) {
@@ -906,6 +912,9 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
     recipeContent.innerHTML = '<div class="recipe-loading">🍳 Searching Fred Meyer for recipes...</div>';
     if (tryAgainBtn) tryAgainBtn.disabled = true;
 
+    // Reset deselected ingredients for new recipe
+    deselectedIngredients.clear();
+
     // Update meal list to show selected state
     if (isHomePage) {
         updateHomeMealList();
@@ -919,7 +928,7 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ mealName: mealName })
+            body: JSON.stringify({ mealName: mealName, glutenFree: glutenFreeMode })
         });
 
         const recipe = await response.json();
@@ -937,7 +946,8 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
         const ingredients = recipe.ingredients || [];
         const instructions = recipe.instructions || [];
 
-        // Store ingredients and products for cart functionality
+        // Store recipe data for saving and cart functionality
+        currentRecipeData = recipe;
         currentRecipeIngredients = ingredients;
         currentRecipeProducts = ingredients
             .filter(ing => ing.product && ing.product.productId)
@@ -954,8 +964,16 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
         const organicCount = recipe.organicCount || productsWithPrices.filter(ing => ing.product?.isOrganic).length;
         const totalIngredients = recipe.totalIngredients || ingredients.length;
 
+        // Check if recipe is already saved
+        const isSaved = appData.savedRecipes?.some(r => r.title === (recipe.title || mealName));
+
         // Display the recipe with products
-        recipeTitle.textContent = recipe.title || mealName;
+        recipeTitle.innerHTML = `
+            <span>${escapeHtml(recipe.title || mealName)}</span>
+            <button class="star-recipe-btn ${isSaved ? 'saved' : ''}" onclick="toggleSaveRecipe()" title="${isSaved ? 'Remove from favorites' : 'Save to favorites'}">
+                ${isSaved ? '★' : '☆'}
+            </button>
+        `;
         recipeContent.innerHTML = `
             ${recipe.image ? `<img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="recipe-image">` : ''}
             <div class="recipe-meta">
@@ -971,9 +989,10 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
 
             <div class="recipe-ingredients">
                 <h3>Ingredients & Fred Meyer Products</h3>
+                <p class="ingredient-hint">Click items you already have to remove from shopping list</p>
                 <div class="ingredient-products-list">
-                    ${ingredients.map(ing => `
-                        <div class="ingredient-product-item ${ing.product?.isOrganic ? 'organic' : ''}">
+                    ${ingredients.map((ing, index) => `
+                        <div class="ingredient-product-item ${ing.product?.isOrganic ? 'organic' : ''}" data-ingredient-index="${index}" onclick="toggleIngredientSelection(${index})">
                             <div class="ingredient-needed">
                                 <span class="quantity">${escapeHtml(ing.quantity || '')}</span>
                                 <span class="name">${escapeHtml(ing.name)}</span>
@@ -989,7 +1008,7 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
                         </div>
                     `).join('')}
                 </div>
-                ${totalPrice > 0 ? `<div class="total-estimate">Estimated Total: <strong>${recipe.estimatedTotal || '$' + totalPrice.toFixed(2)}</strong></div>` : ''}
+                <div class="total-estimate" id="recipe-total-estimate">Estimated Total: <strong>${recipe.estimatedTotal || '$' + totalPrice.toFixed(2)}</strong></div>
             </div>
 
             <div class="recipe-instructions">
@@ -1022,6 +1041,200 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
 }
 
 let isHomePageRecipe = false;
+
+// Toggle save recipe to favorites
+function toggleSaveRecipe() {
+    if (!currentRecipeData) return;
+
+    const recipeTitle = currentRecipeData.title || currentRecipeMealName;
+    const existingIndex = appData.savedRecipes?.findIndex(r => r.title === recipeTitle) ?? -1;
+
+    if (existingIndex >= 0) {
+        // Remove from saved
+        appData.savedRecipes.splice(existingIndex, 1);
+    } else {
+        // Add to saved recipes
+        if (!appData.savedRecipes) appData.savedRecipes = [];
+        appData.savedRecipes.push({
+            id: generateId(),
+            title: recipeTitle,
+            image: currentRecipeData.image,
+            prepTime: currentRecipeData.prepTime,
+            servings: currentRecipeData.servings,
+            ingredients: currentRecipeIngredients,
+            instructions: currentRecipeData.instructions,
+            savedAt: new Date().toISOString()
+        });
+    }
+
+    saveData();
+
+    // Update star button display
+    const starBtn = document.querySelector('.star-recipe-btn');
+    if (starBtn) {
+        const isSaved = existingIndex < 0; // Now saved if it wasn't before
+        starBtn.classList.toggle('saved', isSaved);
+        starBtn.innerHTML = isSaved ? '★' : '☆';
+        starBtn.title = isSaved ? 'Remove from favorites' : 'Save to favorites';
+    }
+
+    // Update saved recipes list if visible
+    updateSavedRecipesList();
+}
+
+// Update the saved recipes list display
+function updateSavedRecipesList() {
+    const savedList = document.getElementById('saved-recipes-list');
+    if (!savedList) return;
+
+    if (!appData.savedRecipes || appData.savedRecipes.length === 0) {
+        savedList.innerHTML = '<div class="empty-state"><p>No saved recipes yet</p></div>';
+        return;
+    }
+
+    savedList.innerHTML = appData.savedRecipes.map(recipe => `
+        <div class="saved-recipe-item" data-recipe-title="${escapeHtml(recipe.title)}">
+            ${recipe.image ? `<img src="${recipe.image}" alt="" class="saved-recipe-thumb">` : '<div class="saved-recipe-thumb-placeholder">🍳</div>'}
+            <div class="saved-recipe-info">
+                <span class="saved-recipe-title">${escapeHtml(recipe.title)}</span>
+                ${recipe.prepTime ? `<span class="saved-recipe-meta">⏱️ ${recipe.prepTime}</span>` : ''}
+            </div>
+            <button class="delete-saved-recipe" onclick="event.stopPropagation(); deleteSavedRecipe('${recipe.id}')">×</button>
+        </div>
+    `).join('');
+}
+
+// Delete saved recipe
+function deleteSavedRecipe(recipeId) {
+    const index = appData.savedRecipes?.findIndex(r => r.id === recipeId) ?? -1;
+    if (index >= 0) {
+        appData.savedRecipes.splice(index, 1);
+        saveData();
+        updateSavedRecipesList();
+    }
+}
+
+// Load saved recipe
+function loadSavedRecipe(recipeTitle) {
+    const recipe = appData.savedRecipes?.find(r => r.title === recipeTitle);
+    if (!recipe) return;
+
+    // Set current recipe data
+    currentRecipeData = recipe;
+    currentRecipeMealName = recipe.title;
+    currentRecipeIngredients = recipe.ingredients || [];
+    currentRecipeProducts = currentRecipeIngredients
+        .filter(ing => ing.product && ing.product.productId)
+        .map(ing => ing.product);
+    deselectedIngredients.clear();
+
+    // Display the saved recipe
+    const recipeDisplay = document.getElementById('home-recipe-display');
+    const recipeTitleEl = document.getElementById('home-recipe-title');
+    const recipeContent = document.getElementById('home-recipe-content');
+
+    if (recipeDisplay) {
+        recipeDisplay.classList.remove('hidden');
+
+        const ingredients = recipe.ingredients || [];
+        const instructions = recipe.instructions || [];
+
+        // Calculate total
+        const productsWithPrices = ingredients.filter(ing => ing.product?.price) || [];
+        const totalPrice = productsWithPrices.reduce((sum, ing) => {
+            const price = parseFloat(ing.product.price.replace(/[^0-9.]/g, '')) || 0;
+            return sum + price;
+        }, 0);
+
+        recipeTitleEl.innerHTML = `
+            <span>${escapeHtml(recipe.title)}</span>
+            <button class="star-recipe-btn saved" onclick="toggleSaveRecipe()" title="Remove from favorites">★</button>
+        `;
+
+        recipeContent.innerHTML = `
+            ${recipe.image ? `<img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="recipe-image">` : ''}
+            <div class="recipe-meta">
+                ${recipe.prepTime ? `<span class="recipe-prep-time">⏱️ ${recipe.prepTime}</span>` : ''}
+                ${recipe.servings ? `<span class="recipe-servings">🍽️ ${recipe.servings}</span>` : ''}
+            </div>
+
+            <div class="recipe-ingredients">
+                <h3>Ingredients & Fred Meyer Products</h3>
+                <p class="ingredient-hint">Click items you already have to remove from shopping list</p>
+                <div class="ingredient-products-list">
+                    ${ingredients.map((ing, index) => `
+                        <div class="ingredient-product-item ${ing.product?.isOrganic ? 'organic' : ''}" data-ingredient-index="${index}" onclick="toggleIngredientSelection(${index})">
+                            <div class="ingredient-needed">
+                                <span class="quantity">${escapeHtml(ing.quantity || '')}</span>
+                                <span class="name">${escapeHtml(ing.name)}</span>
+                            </div>
+                            ${ing.product ? `
+                                <div class="product-match">
+                                    ${ing.product.isOrganic ? '<span class="organic-badge">🌿 Organic</span>' : ''}
+                                    ${ing.product.image ? `<img src="${ing.product.image}" alt="" class="product-thumb">` : ''}
+                                    <span class="product-name">${escapeHtml(ing.product.name)}</span>
+                                    ${ing.product.price ? `<span class="product-price">${escapeHtml(ing.product.price)}</span>` : ''}
+                                </div>
+                            ` : '<div class="product-match not-found">No product found</div>'}
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="total-estimate" id="recipe-total-estimate">Estimated Total: <strong>$${totalPrice.toFixed(2)}</strong></div>
+            </div>
+
+            <div class="recipe-instructions">
+                <h3>Instructions</h3>
+                <ol>
+                    ${instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+                </ol>
+            </div>
+
+            <div class="cart-actions">
+                <button class="fred-meyer-shop-btn" onclick="handleShopAtFredMeyer()">
+                    ${isKrogerConnected() ? '🛒 Add to Fred Meyer Cart' : '🛒 Shop at Fred Meyer'}
+                </button>
+            </div>
+        `;
+
+        recipeDisplay.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Toggle ingredient selection (for items user already has)
+function toggleIngredientSelection(index) {
+    const items = document.querySelectorAll('.ingredient-product-item');
+    const item = items[index];
+
+    if (!item) return;
+
+    if (deselectedIngredients.has(index)) {
+        deselectedIngredients.delete(index);
+        item.classList.remove('deselected');
+    } else {
+        deselectedIngredients.add(index);
+        item.classList.add('deselected');
+    }
+
+    // Update total estimate
+    updateTotalEstimate();
+}
+
+// Update total price estimate based on selected ingredients
+function updateTotalEstimate() {
+    const totalEl = document.getElementById('recipe-total-estimate');
+    if (!totalEl || !currentRecipeIngredients) return;
+
+    let total = 0;
+    currentRecipeIngredients.forEach((ing, index) => {
+        if (!deselectedIngredients.has(index) && ing.product?.price) {
+            const price = parseFloat(ing.product.price.replace(/[^0-9.]/g, '')) || 0;
+            total += price;
+        }
+    });
+
+    const selectedCount = currentRecipeIngredients.length - deselectedIngredients.size;
+    totalEl.innerHTML = `Estimated Total (${selectedCount} items): <strong>$${total.toFixed(2)}</strong>`;
+}
 
 function handleTryAgain(isHomePage = false) {
     if (currentRecipeMealId && currentRecipeMealName) {
@@ -1121,10 +1334,20 @@ function handleOrderMeal(mealName) {
 async function handleShopAtFredMeyer() {
     const tokenData = getKrogerToken();
 
-    if (!currentRecipeProducts || currentRecipeProducts.length === 0) {
-        // Fallback to searching for ingredients
-        if (currentRecipeIngredients && currentRecipeIngredients.length > 0) {
-            const searchTerms = currentRecipeIngredients
+    // Filter out deselected ingredients from products
+    const selectedProducts = currentRecipeProducts.filter((product, index) => {
+        // Find the ingredient index for this product
+        const ingredientIndex = currentRecipeIngredients.findIndex(ing =>
+            ing.product && ing.product.productId === product.productId
+        );
+        return ingredientIndex === -1 || !deselectedIngredients.has(ingredientIndex);
+    });
+
+    if (!selectedProducts || selectedProducts.length === 0) {
+        // Fallback to searching for selected ingredients
+        const selectedIngredients = currentRecipeIngredients.filter((ing, idx) => !deselectedIngredients.has(idx));
+        if (selectedIngredients && selectedIngredients.length > 0) {
+            const searchTerms = selectedIngredients
                 .slice(0, 3)
                 .map(ing => ing.name)
                 .join(' ');
@@ -1135,7 +1358,7 @@ async function handleShopAtFredMeyer() {
         return;
     }
 
-    const products = currentRecipeProducts.filter(p => p.upc || p.productId);
+    const products = selectedProducts.filter(p => p.upc || p.productId);
 
     // If connected to Kroger, add to cart via API
     if (tokenData && tokenData.accessToken && products.length > 0) {
@@ -1792,6 +2015,24 @@ async function init() {
             document.getElementById('home-get-recipe-btn').click();
         }
     });
+
+    // Gluten-free toggle
+    document.getElementById('gf-toggle')?.addEventListener('click', (e) => {
+        glutenFreeMode = !glutenFreeMode;
+        e.target.classList.toggle('active', glutenFreeMode);
+    });
+
+    // Saved recipes list - click to load
+    document.getElementById('saved-recipes-list')?.addEventListener('click', (e) => {
+        const recipeItem = e.target.closest('.saved-recipe-item');
+        if (recipeItem && !e.target.classList.contains('delete-saved-recipe')) {
+            const recipeTitle = recipeItem.dataset.recipeTitle;
+            loadSavedRecipe(recipeTitle);
+        }
+    });
+
+    // Initialize saved recipes list
+    updateSavedRecipesList();
 
     // Home page recipe action buttons
     document.getElementById('home-try-again-btn')?.addEventListener('click', () => handleTryAgain(true));
