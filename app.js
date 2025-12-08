@@ -257,8 +257,8 @@ function showScreen(screenId) {
 
 // Update UI
 function updateHomeScreen() {
-    document.getElementById('kylie-balance-preview').textContent = formatCurrency(appData.users.kylie.balance);
-    document.getElementById('parker-balance-preview').textContent = formatCurrency(appData.users.parker.balance);
+    document.getElementById('kylie-balance-preview').textContent = formatCurrency(getAvailableBalance('kylie'));
+    document.getElementById('parker-balance-preview').textContent = formatCurrency(getAvailableBalance('parker'));
 }
 
 function updateKidScreen() {
