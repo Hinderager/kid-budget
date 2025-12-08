@@ -907,6 +907,135 @@ body {
     background: #d97706;
 }
 
+/* Fred Meyer Products */
+.fred-meyer-products {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gray-200);
+}
+
+.fred-meyer-products.hidden {
+    display: none;
+}
+
+.fred-meyer-products h3 {
+    font-size: 1.1rem;
+    color: var(--gray-800);
+    margin-bottom: 12px;
+}
+
+.products-loading,
+.products-error {
+    text-align: center;
+    padding: 20px;
+    color: var(--gray-500);
+}
+
+.products-error {
+    color: var(--danger);
+}
+
+.products-summary {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+
+.products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.product-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--gray-50);
+    border-radius: 8px;
+}
+
+.product-image {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: white;
+}
+
+.product-image-placeholder {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-200);
+    border-radius: 6px;
+    font-size: 1.5rem;
+}
+
+.product-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.product-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-details {
+    display: flex;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.product-ingredient {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+.product-price {
+    font-weight: 600;
+    color: var(--primary);
+    white-space: nowrap;
+}
+
+.products-not-found {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--gray-100);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.fred-meyer-link {
+    display: block;
+    margin-top: 16px;
+    padding: 12px;
+    background: #e31837;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.fred-meyer-link:active {
+    background: #c41430;
+}
+
 .add-chore-btn {
     width: 100%;
     padding: 16px;

@@ -8,10 +8,12 @@ const SUPABASE_URL = 'https://vxenhaapccmqhvdfkbja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4ZW5oYWFwY2NtcWh2ZGZrYmphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4ODYyNjEsImV4cCI6MjA4MDQ2MjI2MX0.SSA7QiVgMkw1R9VDbQ7Qf8O-qsX1Cq1RBDGwzYs6wRo';
 let syncInProgress = false;
 
-// N8N Recipe Webhook
+// N8N Webhooks
 const N8N_RECIPE_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/recipe-search';
+const N8N_ORDER_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/fred-meyer-order';
 let currentRecipeMealId = null;
 let currentRecipeMealName = null;
+let currentRecipeIngredients = [];
 
 // Default data structure
 const defaultData = {
@@ -779,6 +781,9 @@ async function handleGetRecipe(mealId, mealName) {
 
         const recipe = await response.json();
 
+        // Store ingredients for ordering
+        currentRecipeIngredients = recipe.ingredients || [];
+
         // Display the recipe
         recipeTitle.textContent = recipe.title || mealName;
         recipeContent.innerHTML = `
@@ -794,6 +799,9 @@ async function handleGetRecipe(mealId, mealName) {
                 <ol>
                     ${recipe.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
                 </ol>
+            </div>
+            <div class="fred-meyer-products hidden" id="fred-meyer-products">
+                <!-- Products will be loaded here -->
             </div>
         `;
 
@@ -815,10 +823,86 @@ function handleTryAgain() {
     }
 }
 
-function handleOrderCurrentMeal() {
-    if (currentRecipeMealName) {
-        const searchQuery = encodeURIComponent(currentRecipeMealName + ' delivery near me');
-        window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+async function handleOrderCurrentMeal() {
+    if (!currentRecipeIngredients || currentRecipeIngredients.length === 0) {
+        alert('Please get a recipe first before ordering ingredients.');
+        return;
+    }
+
+    const orderBtn = document.getElementById('order-recipe-btn');
+    const productsDiv = document.getElementById('fred-meyer-products');
+
+    orderBtn.textContent = 'Finding products...';
+    orderBtn.disabled = true;
+
+    if (productsDiv) {
+        productsDiv.classList.remove('hidden');
+        productsDiv.innerHTML = '<div class="products-loading">🛒 Searching Fred Meyer for ingredients...</div>';
+    }
+
+    try {
+        const response = await fetch(N8N_ORDER_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ingredients: currentRecipeIngredients })
+        });
+
+        const result = await response.json();
+
+        if (result.products && result.products.length > 0) {
+            const foundProducts = result.products.filter(p => p.found);
+            const notFound = result.products.filter(p => !p.found);
+            const totalPrice = foundProducts.reduce((sum, p) => sum + (p.price || 0), 0);
+
+            productsDiv.innerHTML = `
+                <h3>🛒 Fred Meyer Products</h3>
+                <div class="products-summary">
+                    Found ${foundProducts.length} of ${result.products.length} items
+                    ${totalPrice > 0 ? `• Est. Total: $${totalPrice.toFixed(2)}` : ''}
+                </div>
+                <div class="products-list">
+                    ${foundProducts.map(p => `
+                        <div class="product-item">
+                            ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name)}" class="product-image">` : '<div class="product-image-placeholder">🥫</div>'}
+                            <div class="product-info">
+                                <div class="product-name">${escapeHtml(p.name)}</div>
+                                <div class="product-details">
+                                    ${p.brand ? `<span class="product-brand">${escapeHtml(p.brand)}</span>` : ''}
+                                    ${p.size ? `<span class="product-size">${escapeHtml(p.size)}</span>` : ''}
+                                </div>
+                                <div class="product-ingredient">For: ${escapeHtml(p.ingredient)}</div>
+                            </div>
+                            <div class="product-price">${p.price ? `$${p.price.toFixed(2)}` : '-'}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${notFound.length > 0 ? `
+                    <div class="products-not-found">
+                        <strong>Not found:</strong> ${notFound.map(p => escapeHtml(p.ingredient)).join(', ')}
+                    </div>
+                ` : ''}
+                <a href="https://www.fredmeyer.com" target="_blank" class="fred-meyer-link">
+                    Open Fred Meyer Website →
+                </a>
+            `;
+        } else {
+            productsDiv.innerHTML = '<div class="products-error">No products found. Try a different recipe.</div>';
+        }
+
+        orderBtn.textContent = 'Order';
+        orderBtn.disabled = false;
+
+        productsDiv.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (error) {
+        console.error('Fred Meyer order error:', error);
+        if (productsDiv) {
+            productsDiv.innerHTML = '<div class="products-error">Failed to search products. Please try again.</div>';
+        }
+        orderBtn.textContent = 'Order';
+        orderBtn.disabled = false;
     }
 }
 
