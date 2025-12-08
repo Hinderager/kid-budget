@@ -249,6 +249,20 @@ body {
     opacity: 0.8;
 }
 
+.bank-transfer-info {
+    display: block;
+    font-size: 0.875rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-weight: 600;
+}
+
+.bank-transfer-info.hidden {
+    display: none;
+}
+
 /* Action Buttons */
 .action-buttons {
     display: grid;
@@ -351,6 +365,16 @@ body {
     background: var(--gray-50);
     border-radius: 8px;
     gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.transaction-item:hover {
+    background: var(--gray-100);
+}
+
+.transaction-item:active {
+    transform: scale(0.98);
 }
 
 .transaction-icon {
@@ -1170,6 +1194,50 @@ body {
     font-size: 0.8rem;
     opacity: 0.85;
     margin-top: 4px;
+}
+
+/* Bank Transfer Settings */
+.bank-transfer-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bank-transfer-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--gray-50);
+    border-radius: 8px;
+    gap: 12px;
+}
+
+.bank-transfer-row .transfer-name {
+    font-weight: 600;
+    min-width: 60px;
+}
+
+.bank-transfer-row .transfer-amount {
+    flex: 1;
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.btn-small {
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    flex: none;
+}
+
+/* Transaction date display in modal */
+.transaction-date-display {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 0.875rem;
+    padding: 8px;
+    background: var(--gray-50);
+    border-radius: 8px;
 }
 
 /* Responsive tweaks */

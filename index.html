@@ -60,6 +60,7 @@
                     <span class="balance-label">Available Balance</span>
                     <span class="balance-amount" id="kid-balance">$0.00</span>
                     <span class="allowance-info" id="allowance-info">Allowance: $0/week</span>
+                    <span class="bank-transfer-info hidden" id="bank-transfer-info">Transfer to bank: $0.00</span>
                 </div>
 
                 <div class="action-buttons">
@@ -174,6 +175,44 @@
                         </div>
                     </div>
                     <p class="hint">Allowance is automatically added every Sunday morning</p>
+                </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">Bank Account %</h2>
+                    <p class="hint" style="margin-bottom: 12px;">Percentage of allowance to save in bank account</p>
+                    <div class="allowance-settings">
+                        <div class="allowance-input">
+                            <label>Kylie</label>
+                            <div class="input-group">
+                                <input type="number" id="kylie-bank-percent" min="0" max="100" step="5" value="50">
+                                <span class="currency">%</span>
+                            </div>
+                        </div>
+                        <div class="allowance-input">
+                            <label>Parker</label>
+                            <div class="input-group">
+                                <input type="number" id="parker-bank-percent" min="0" max="100" step="5" value="50">
+                                <span class="currency">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">Pending Bank Transfers</h2>
+                    <div class="bank-transfer-settings">
+                        <div class="bank-transfer-row">
+                            <span class="transfer-name">Kylie</span>
+                            <span class="transfer-amount" id="kylie-pending-transfer">$0.00</span>
+                            <button class="btn btn-small" id="kylie-mark-transferred">Mark Transferred</button>
+                        </div>
+                        <div class="bank-transfer-row">
+                            <span class="transfer-name">Parker</span>
+                            <span class="transfer-amount" id="parker-pending-transfer">$0.00</span>
+                            <button class="btn btn-small" id="parker-mark-transferred">Mark Transferred</button>
+                        </div>
+                    </div>
+                    <p class="hint">Click "Mark Transferred" after depositing money into their bank account</p>
                 </section>
 
                 <section class="settings-section">
@@ -361,6 +400,35 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary close-modal">Cancel</button>
                     <button class="btn btn-primary" id="save-savings-goal">Add Goal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Transaction Modal -->
+        <div id="edit-transaction-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit Transaction</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <div class="input-group large">
+                            <span class="currency">$</span>
+                            <input type="number" id="edit-transaction-amount" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="edit-transaction-description" placeholder="Description">
+                    </div>
+                    <div class="transaction-date-display" id="edit-transaction-date"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" id="delete-transaction">Delete</button>
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-transaction-edit">Save</button>
                 </div>
             </div>
         </div>

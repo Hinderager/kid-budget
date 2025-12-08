@@ -12,7 +12,9 @@ const defaultData = {
             transactions: [],
             lastAllowanceWeek: null,
             savingsGoals: [],
-            choreCompletions: {}
+            choreCompletions: {},
+            bankPercent: 50,
+            pendingBankTransfer: 0
         },
         parker: {
             balance: 0,
@@ -20,7 +22,9 @@ const defaultData = {
             transactions: [],
             lastAllowanceWeek: null,
             savingsGoals: [],
-            choreCompletions: {}
+            choreCompletions: {},
+            bankPercent: 50,
+            pendingBankTransfer: 0
         },
         mom: {
             choreCompletions: {}
@@ -52,6 +56,7 @@ let appData = null;
 let currentPerson = null;
 let editingChoreId = null;
 let currentSavingsGoalId = null;
+let currentTransactionId = null;
 
 // Utility Functions
 function generateId() {
@@ -108,6 +113,12 @@ function loadData() {
             }
             if (!appData.users[kid].choreCompletions) {
                 appData.users[kid].choreCompletions = {};
+            }
+            if (appData.users[kid].bankPercent === undefined) {
+                appData.users[kid].bankPercent = 50;
+            }
+            if (appData.users[kid].pendingBankTransfer === undefined) {
+                appData.users[kid].pendingBankTransfer = 0;
             }
         });
         // Ensure parent users exist for chore completions
@@ -207,13 +218,26 @@ function checkAndAddAllowance() {
         if (user.lastAllowanceWeek !== currentWeek && user.allowance > 0) {
             // Check if it's Sunday or if we missed Sunday this week
             if (dayOfWeek === 0 || (user.lastAllowanceWeek !== currentWeek)) {
+                // Calculate bank portion
+                const bankPercent = user.bankPercent || 0;
+                const bankAmount = (user.allowance * bankPercent) / 100;
+                const keepAmount = user.allowance - bankAmount;
+
                 user.balance += user.allowance;
+                user.pendingBankTransfer = (user.pendingBankTransfer || 0) + bankAmount;
+
+                let description = 'Weekly Allowance';
+                if (bankPercent > 0) {
+                    description = `Weekly Allowance (${formatCurrency(bankAmount)} to bank)`;
+                }
+
                 user.transactions.unshift({
                     id: generateId(),
                     type: 'allowance',
                     amount: user.allowance,
-                    description: 'Weekly Allowance',
-                    date: now.toISOString()
+                    description: description,
+                    date: now.toISOString(),
+                    bankPortion: bankAmount
                 });
                 user.lastAllowanceWeek = currentWeek;
             }
@@ -247,12 +271,23 @@ function updateKidScreen() {
     document.getElementById('kid-name').textContent = currentPerson.charAt(0).toUpperCase() + currentPerson.slice(1);
     document.getElementById('kid-balance').textContent = formatCurrency(availableBalance);
 
-    // Show total balance if there are savings
+    // Show allowance info and bank transfer info
     let allowanceText = `Allowance: ${formatCurrency(user.allowance)}/week`;
     if (totalSavings > 0) {
         allowanceText += ` • Total: ${formatCurrency(user.balance)}`;
     }
     document.getElementById('allowance-info').textContent = allowanceText;
+
+    // Show pending bank transfer
+    const bankTransferEl = document.getElementById('bank-transfer-info');
+    if (bankTransferEl) {
+        if (user.pendingBankTransfer > 0) {
+            bankTransferEl.textContent = `Transfer to bank: ${formatCurrency(user.pendingBankTransfer)}`;
+            bankTransferEl.classList.remove('hidden');
+        } else {
+            bankTransferEl.classList.add('hidden');
+        }
+    }
 
     // Update savings goals list
     const savingsGoalsList = document.getElementById('savings-goals-list');
@@ -289,7 +324,7 @@ function updateKidScreen() {
         `;
     } else {
         transactionList.innerHTML = user.transactions.map(t => `
-            <div class="transaction-item ${t.type}">
+            <div class="transaction-item ${t.type}" data-transaction-id="${t.id}">
                 <div class="transaction-icon">
                     ${t.type === 'earning' ? '💰' : t.type === 'expense' ? '🛒' : '📅'}
                 </div>
@@ -381,6 +416,14 @@ function updateManageScreen() {
     // Update allowance inputs
     document.getElementById('kylie-allowance').value = appData.users.kylie.allowance;
     document.getElementById('parker-allowance').value = appData.users.parker.allowance;
+
+    // Update bank percent inputs
+    document.getElementById('kylie-bank-percent').value = appData.users.kylie.bankPercent || 0;
+    document.getElementById('parker-bank-percent').value = appData.users.parker.bankPercent || 0;
+
+    // Update pending bank transfers
+    document.getElementById('kylie-pending-transfer').textContent = formatCurrency(appData.users.kylie.pendingBankTransfer || 0);
+    document.getElementById('parker-pending-transfer').textContent = formatCurrency(appData.users.parker.pendingBankTransfer || 0);
 
     // Update chore grid
     const choreGridBody = document.getElementById('chore-grid-body');
@@ -846,6 +889,115 @@ function handleDeleteSavingsGoal() {
     }
 }
 
+// Bank Transfer Handlers
+function handleBankPercentChange() {
+    const kyliePercent = parseInt(document.getElementById('kylie-bank-percent').value) || 0;
+    const parkerPercent = parseInt(document.getElementById('parker-bank-percent').value) || 0;
+
+    appData.users.kylie.bankPercent = Math.max(0, Math.min(100, kyliePercent));
+    appData.users.parker.bankPercent = Math.max(0, Math.min(100, parkerPercent));
+
+    saveData();
+}
+
+function handleMarkTransferred(kid) {
+    const user = appData.users[kid];
+    if (user.pendingBankTransfer > 0) {
+        const amount = user.pendingBankTransfer;
+        user.pendingBankTransfer = 0;
+
+        // Add transaction record
+        user.transactions.unshift({
+            id: generateId(),
+            type: 'expense',
+            amount: amount,
+            description: 'Transferred to bank account',
+            date: new Date().toISOString()
+        });
+
+        // Subtract from balance since it went to bank
+        user.balance -= amount;
+
+        saveData();
+        updateManageScreen();
+        updateHomeScreen();
+    }
+}
+
+// Transaction Edit Handlers
+function openEditTransactionModal(transactionId) {
+    currentTransactionId = transactionId;
+    const user = appData.users[currentPerson];
+    const transaction = user.transactions.find(t => t.id === transactionId);
+
+    if (!transaction) return;
+
+    document.getElementById('edit-transaction-amount').value = transaction.amount;
+    document.getElementById('edit-transaction-description').value = transaction.description;
+    document.getElementById('edit-transaction-date').textContent = `Created: ${formatDate(transaction.date)}`;
+
+    openModal('edit-transaction-modal');
+}
+
+function handleSaveTransactionEdit() {
+    if (!currentTransactionId) return;
+
+    const user = appData.users[currentPerson];
+    const transaction = user.transactions.find(t => t.id === currentTransactionId);
+
+    if (!transaction) return;
+
+    const newAmount = parseFloat(document.getElementById('edit-transaction-amount').value) || 0;
+    const newDescription = document.getElementById('edit-transaction-description').value.trim();
+
+    if (newAmount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+
+    // Adjust balance based on old and new amounts
+    const amountDiff = newAmount - transaction.amount;
+    if (transaction.type === 'expense') {
+        user.balance -= amountDiff; // More expense = less balance
+    } else {
+        user.balance += amountDiff; // More earning = more balance
+    }
+
+    transaction.amount = newAmount;
+    transaction.description = newDescription || transaction.description;
+
+    saveData();
+    updateKidScreen();
+    updateHomeScreen();
+    closeModal('edit-transaction-modal');
+}
+
+function handleDeleteTransaction() {
+    if (!currentTransactionId) return;
+
+    if (confirm('Delete this transaction? This will adjust the balance.')) {
+        const user = appData.users[currentPerson];
+        const transaction = user.transactions.find(t => t.id === currentTransactionId);
+
+        if (transaction) {
+            // Reverse the balance effect
+            if (transaction.type === 'expense') {
+                user.balance += transaction.amount;
+            } else {
+                user.balance -= transaction.amount;
+            }
+
+            user.transactions = user.transactions.filter(t => t.id !== currentTransactionId);
+        }
+
+        currentTransactionId = null;
+        saveData();
+        updateKidScreen();
+        updateHomeScreen();
+        closeModal('edit-transaction-modal');
+    }
+}
+
 // Initialize App
 function init() {
     loadData();
@@ -893,6 +1045,26 @@ function init() {
     // Allowance changes
     document.getElementById('kylie-allowance').addEventListener('change', handleAllowanceChange);
     document.getElementById('parker-allowance').addEventListener('change', handleAllowanceChange);
+
+    // Bank percent changes
+    document.getElementById('kylie-bank-percent').addEventListener('change', handleBankPercentChange);
+    document.getElementById('parker-bank-percent').addEventListener('change', handleBankPercentChange);
+
+    // Mark transferred buttons
+    document.getElementById('kylie-mark-transferred').addEventListener('click', () => handleMarkTransferred('kylie'));
+    document.getElementById('parker-mark-transferred').addEventListener('click', () => handleMarkTransferred('parker'));
+
+    // Transaction list - click to edit
+    document.getElementById('transaction-list').addEventListener('click', (e) => {
+        const transactionItem = e.target.closest('.transaction-item');
+        if (transactionItem && transactionItem.dataset.transactionId) {
+            openEditTransactionModal(transactionItem.dataset.transactionId);
+        }
+    });
+
+    // Transaction edit modal
+    document.getElementById('save-transaction-edit').addEventListener('click', handleSaveTransactionEdit);
+    document.getElementById('delete-transaction').addEventListener('click', handleDeleteTransaction);
 
     // Chore management - Add new chore button
     document.getElementById('add-chore-btn').addEventListener('click', () => openChoreModal());
