@@ -8,6 +8,10 @@ const SUPABASE_URL = 'https://vxenhaapccmqhvdfkbja.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4ZW5oYWFwY2NtcWh2ZGZrYmphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4ODYyNjEsImV4cCI6MjA4MDQ2MjI2MX0.SSA7QiVgMkw1R9VDbQ7Qf8O-qsX1Cq1RBDGwzYs6wRo';
 let syncInProgress = false;
 
+// N8N Recipe Webhook
+const N8N_RECIPE_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/recipe-search';
+let currentRecipeMealId = null;
+
 // Default data structure
 const defaultData = {
     users: {
@@ -637,7 +641,9 @@ function updateManageScreen() {
             </div>
         `;
     } else {
-        mealsList.innerHTML = appData.meals.map(m => `
+        mealsList.innerHTML = appData.meals.map(m => {
+            const hasRecipeLoaded = currentRecipeMealId === m.id;
+            return `
             <div class="meal-item" data-meal-id="${m.id}">
                 <div class="meal-header">
                     <span class="meal-name">${escapeHtml(m.name)}</span>
@@ -645,8 +651,8 @@ function updateManageScreen() {
                 </div>
                 <div class="meal-controls">
                     <div class="meal-buttons">
-                        <button class="meal-btn recipe" onclick="handleGetRecipe('${escapeHtml(m.name)}')">Get Recipe</button>
-                        <button class="meal-btn order" onclick="handleOrderMeal('${escapeHtml(m.name)}')">Order</button>
+                        <button class="meal-btn recipe" onclick="handleGetRecipe(${m.id}, '${escapeHtml(m.name).replace(/'/g, "\\'")}')">${hasRecipeLoaded ? 'Try Again' : 'Get Recipe'}</button>
+                        <button class="meal-btn order" onclick="handleOrderMeal('${escapeHtml(m.name).replace(/'/g, "\\'")}')">Order</button>
                     </div>
                     <div class="meal-quantity">
                         <button class="qty-btn" onclick="handleMealQuantityChange(${m.id}, -1)">−</button>
@@ -655,7 +661,7 @@ function updateManageScreen() {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     }
 }
 
@@ -756,9 +762,87 @@ function handleMealQuantityChange(mealId, delta) {
     }
 }
 
-function handleGetRecipe(mealName) {
-    const searchQuery = encodeURIComponent(mealName + ' recipe');
-    window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+async function handleGetRecipe(mealId, mealName) {
+    currentRecipeMealId = mealId;
+
+    // Show loading state
+    const recipeSection = document.getElementById('recipe-section');
+    const recipeTitle = document.getElementById('recipe-title');
+    const recipeContent = document.getElementById('recipe-content');
+
+    recipeSection.classList.remove('hidden');
+    recipeTitle.textContent = `Loading ${mealName} Recipe...`;
+    recipeContent.innerHTML = '<div class="recipe-loading">🍳 Finding a great recipe...</div>';
+
+    // Update button to show loading
+    updateMealButton(mealId, 'loading');
+
+    try {
+        const response = await fetch(N8N_RECIPE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ mealName: mealName })
+        });
+
+        const recipe = await response.json();
+
+        // Display the recipe
+        recipeTitle.textContent = recipe.title || mealName;
+        recipeContent.innerHTML = `
+            ${recipe.prepTime ? `<div class="recipe-prep-time">⏱️ ${recipe.prepTime}</div>` : ''}
+            <div class="recipe-ingredients">
+                <h3>Ingredients</h3>
+                <ul>
+                    ${recipe.ingredients.map(ing => `<li>${escapeHtml(ing)}</li>`).join('')}
+                </ul>
+            </div>
+            <div class="recipe-instructions">
+                <h3>Instructions</h3>
+                <ol>
+                    ${recipe.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+                </ol>
+            </div>
+        `;
+
+        // Update button to "Try Again"
+        updateMealButton(mealId, 'loaded');
+
+        // Scroll to recipe
+        recipeSection.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (error) {
+        console.error('Recipe fetch error:', error);
+        recipeContent.innerHTML = '<div class="recipe-error">Failed to load recipe. Please try again.</div>';
+        updateMealButton(mealId, 'error');
+    }
+}
+
+function updateMealButton(mealId, state) {
+    const btn = document.querySelector(`.meal-item[data-meal-id="${mealId}"] .meal-btn.recipe`);
+    if (!btn) return;
+
+    const meal = appData.meals.find(m => m.id === mealId);
+    if (!meal) return;
+
+    switch (state) {
+        case 'loading':
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+            break;
+        case 'loaded':
+            btn.textContent = 'Try Again';
+            btn.disabled = false;
+            break;
+        case 'error':
+            btn.textContent = 'Retry';
+            btn.disabled = false;
+            break;
+        default:
+            btn.textContent = 'Get Recipe';
+            btn.disabled = false;
+    }
 }
 
 function handleOrderMeal(mealName) {
