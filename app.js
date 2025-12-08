@@ -54,12 +54,20 @@ function formatCurrency(amount) {
 function formatDate(dateString) {
     const date = new Date(dateString);
     const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    const isCurrentYear = date.getFullYear() === now.getFullYear();
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const options = {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    };
+
+    if (!isCurrentYear) {
+        options.year = 'numeric';
+    }
+
+    return date.toLocaleDateString('en-US', options);
 }
 
 function getWeekNumber(date) {
