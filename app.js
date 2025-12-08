@@ -52,8 +52,10 @@ const defaultData = {
     options: [
         { id: 1, name: 'Mow Lawn', value: 10.00 }
     ],
+    meals: [],
     nextChoreId: 10,
-    nextOptionId: 2
+    nextOptionId: 2,
+    nextMealId: 1
 };
 
 // State
@@ -109,6 +111,8 @@ function loadData() {
         if (!appData.nextChoreId) appData.nextChoreId = 10;
         if (!appData.options) appData.options = [{ id: 1, name: 'Mow Lawn', value: 10.00 }];
         if (!appData.nextOptionId) appData.nextOptionId = 2;
+        if (!appData.meals) appData.meals = [];
+        if (!appData.nextMealId) appData.nextMealId = 1;
         ['kylie', 'parker'].forEach(kid => {
             if (!appData.users[kid].lastAllowanceWeek) {
                 appData.users[kid].lastAllowanceWeek = null;
@@ -146,6 +150,8 @@ function ensureDataIntegrity() {
     if (!appData.nextChoreId) appData.nextChoreId = 10;
     if (!appData.options) appData.options = [{ id: 1, name: 'Mow Lawn', value: 10.00 }];
     if (!appData.nextOptionId) appData.nextOptionId = 2;
+    if (!appData.meals) appData.meals = [];
+    if (!appData.nextMealId) appData.nextMealId = 1;
     ['kylie', 'parker'].forEach(kid => {
         if (!appData.users[kid].lastAllowanceWeek) {
             appData.users[kid].lastAllowanceWeek = null;
@@ -620,6 +626,37 @@ function updateManageScreen() {
             </div>
         `).join('');
     }
+
+    // Update meals list
+    const mealsList = document.getElementById('meal-list');
+    if (appData.meals.length === 0) {
+        mealsList.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">🍽️</div>
+                <p>No meal ideas yet. Add some!</p>
+            </div>
+        `;
+    } else {
+        mealsList.innerHTML = appData.meals.map(m => `
+            <div class="meal-item" data-meal-id="${m.id}">
+                <div class="meal-header">
+                    <span class="meal-name">${escapeHtml(m.name)}</span>
+                    <button class="delete-meal-btn" onclick="handleDeleteMeal(${m.id})">×</button>
+                </div>
+                <div class="meal-controls">
+                    <div class="meal-buttons">
+                        <button class="meal-btn recipe" onclick="handleGetRecipe('${escapeHtml(m.name)}')">Get Recipe</button>
+                        <button class="meal-btn order" onclick="handleOrderMeal('${escapeHtml(m.name)}')">Order</button>
+                    </div>
+                    <div class="meal-quantity">
+                        <button class="qty-btn" onclick="handleMealQuantityChange(${m.id}, -1)">−</button>
+                        <span class="qty-value">${m.quantity || 1}</span>
+                        <button class="qty-btn" onclick="handleMealQuantityChange(${m.id}, 1)">+</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
 }
 
 // Chore grid handlers
@@ -679,6 +716,54 @@ function handleSaveOption() {
     // Reset form
     document.getElementById('option-name').value = '';
     document.getElementById('option-value').value = '';
+}
+
+// Meal handlers
+function handleSaveMeal() {
+    const name = document.getElementById('meal-name').value.trim();
+
+    if (!name) {
+        alert('Please enter a meal name');
+        return;
+    }
+
+    appData.meals.push({
+        id: appData.nextMealId++,
+        name: name,
+        quantity: 1
+    });
+
+    saveData();
+    updateManageScreen();
+    closeModal('meal-modal');
+
+    // Reset form
+    document.getElementById('meal-name').value = '';
+}
+
+function handleDeleteMeal(mealId) {
+    appData.meals = appData.meals.filter(m => m.id !== mealId);
+    saveData();
+    updateManageScreen();
+}
+
+function handleMealQuantityChange(mealId, delta) {
+    const meal = appData.meals.find(m => m.id === mealId);
+    if (meal) {
+        meal.quantity = Math.max(1, (meal.quantity || 1) + delta);
+        saveData();
+        updateManageScreen();
+    }
+}
+
+function handleGetRecipe(mealName) {
+    const searchQuery = encodeURIComponent(mealName + ' recipe');
+    window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+}
+
+function handleOrderMeal(mealName) {
+    const searchQuery = encodeURIComponent(mealName + ' delivery near me');
+    window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
 }
 
 // Balance adjustment handler
@@ -1206,6 +1291,10 @@ async function init() {
     // Option management
     document.getElementById('add-option-btn').addEventListener('click', () => openModal('option-modal'));
     document.getElementById('save-option').addEventListener('click', handleSaveOption);
+
+    // Meal management
+    document.getElementById('add-meal-btn').addEventListener('click', () => openModal('meal-modal'));
+    document.getElementById('save-meal').addEventListener('click', handleSaveMeal);
 
     // Allowance changes
     document.getElementById('kylie-allowance').addEventListener('change', handleAllowanceChange);

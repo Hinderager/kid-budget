@@ -251,6 +251,17 @@
                         Add New Option
                     </button>
                 </section>
+
+                <section class="settings-section">
+                    <h2 class="section-title">What's to Eat</h2>
+                    <div class="meal-list" id="meal-list">
+                        <!-- Meals will be populated here -->
+                    </div>
+                    <button class="add-chore-btn" id="add-meal-btn">
+                        <span class="icon">+</span>
+                        Add Meal Idea
+                    </button>
+                </section>
             </main>
         </div>
 
@@ -467,6 +478,26 @@
                 <div class="modal-footer">
                     <button class="btn btn-danger" id="delete-savings-goal">Delete Goal</button>
                     <button class="btn btn-secondary close-modal">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Meal Modal -->
+        <div id="meal-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Meal Idea</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Meal Name</label>
+                        <input type="text" id="meal-name" placeholder="e.g., Tacos, Spaghetti">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-meal">Add Meal</button>
                 </div>
             </div>
         </div>
