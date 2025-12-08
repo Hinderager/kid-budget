@@ -485,29 +485,28 @@ function checkAndAddAllowance() {
     ['kylie', 'parker'].forEach(kid => {
         const user = appData.users[kid];
         if (user.lastAllowanceWeek !== currentWeek && user.allowance > 0) {
-                // Calculate bank portion
-                const bankPercent = user.bankPercent || 0;
-                const bankAmount = (user.allowance * bankPercent) / 100;
-                const keepAmount = user.allowance - bankAmount;
+            // Calculate bank portion
+            const bankPercent = user.bankPercent || 0;
+            const bankAmount = (user.allowance * bankPercent) / 100;
+            const keepAmount = user.allowance - bankAmount;
 
-                user.balance += user.allowance;
-                user.pendingBankTransfer = (user.pendingBankTransfer || 0) + bankAmount;
+            user.balance += user.allowance;
+            user.pendingBankTransfer = (user.pendingBankTransfer || 0) + bankAmount;
 
-                let description = 'Weekly Allowance';
-                if (bankPercent > 0) {
-                    description = `Weekly Allowance (${formatCurrency(bankAmount)} to bank)`;
-                }
-
-                user.transactions.unshift({
-                    id: generateId(),
-                    type: 'allowance',
-                    amount: user.allowance,
-                    description: description,
-                    date: now.toISOString(),
-                    bankPortion: bankAmount
-                });
-                user.lastAllowanceWeek = currentWeek;
+            let description = 'Weekly Allowance';
+            if (bankPercent > 0) {
+                description = `Weekly Allowance (${formatCurrency(bankAmount)} to bank)`;
             }
+
+            user.transactions.unshift({
+                id: generateId(),
+                type: 'allowance',
+                amount: user.allowance,
+                description: description,
+                date: now.toISOString(),
+                bankPortion: bankAmount
+            });
+            user.lastAllowanceWeek = currentWeek;
         }
     });
 
