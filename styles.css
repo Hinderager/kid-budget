@@ -907,6 +907,200 @@ body {
     background: #d97706;
 }
 
+/* Recipe Image */
+.recipe-image {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+/* Recipe Meta Info */
+.recipe-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.recipe-meta span {
+    background: var(--gray-100);
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.recipe-category {
+    background: var(--primary-light) !important;
+    color: var(--primary-dark) !important;
+}
+
+.recipe-cuisine {
+    background: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+/* Organic Summary */
+.organic-summary {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    color: #065f46;
+    font-size: 0.95rem;
+}
+
+/* Ingredient Product List */
+.ingredient-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ingredient-product-item {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s;
+}
+
+.ingredient-product-item.organic {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.ingredient-needed {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--gray-800);
+}
+
+.ingredient-needed .quantity {
+    color: var(--primary-dark);
+    min-width: 60px;
+}
+
+.product-match {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+}
+
+.product-match.not-found {
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+.organic-badge {
+    background: #059669;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.product-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--gray-200);
+}
+
+.product-name {
+    flex: 1;
+    min-width: 150px;
+}
+
+.product-price {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+/* Total Estimate */
+.total-estimate {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* Fred Meyer Shop Button */
+.fred-meyer-shop-btn {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fred-meyer-shop-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.fred-meyer-shop-btn:active {
+    transform: translateY(0);
+}
+
+/* Cart Actions */
+.cart-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.kroger-connect-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.kroger-connect-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.kroger-connect-btn.connected {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.kroger-connect-btn.connected:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
 /* Fred Meyer Products */
 .fred-meyer-products {
     margin-top: 20px;
@@ -1606,6 +1800,155 @@ body {
     padding: 8px;
     background: var(--gray-50);
     border-radius: 8px;
+}
+
+/* Recipe Search Form */
+.recipe-search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.meal-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.meal-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.meal-input::placeholder {
+    color: var(--gray-400);
+}
+
+/* Ingredient Products Display */
+.recipe-servings {
+    color: var(--gray-600);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.recipe-source-link {
+    display: inline-block;
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.recipe-source-link:hover {
+    text-decoration: underline;
+}
+
+.ingredient-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ingredient-product-item {
+    background: var(--gray-50);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid var(--gray-300);
+}
+
+.ingredient-product-item.organic {
+    border-left-color: #22c55e;
+    background: #f0fdf4;
+}
+
+.ingredient-needed {
+    margin-bottom: 8px;
+}
+
+.ingredient-needed .quantity {
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-right: 4px;
+}
+
+.ingredient-needed .name {
+    color: var(--gray-800);
+}
+
+.product-match {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.product-match.not-found {
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.organic-badge {
+    background: #dcfce7;
+    color: #166534;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.product-name {
+    color: var(--gray-600);
+    flex: 1;
+}
+
+.product-price {
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.product-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.product-link:hover {
+    text-decoration: underline;
+}
+
+.total-estimate {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--primary-light);
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 1.1rem;
+}
+
+.fred-meyer-shop-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: #e31837;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 20px;
+}
+
+.fred-meyer-shop-btn:active {
+    background: #c41430;
 }
 
 /* Responsive tweaks */

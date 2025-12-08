@@ -49,14 +49,13 @@
 
                 <section class="home-section whats-to-eat-section">
                     <h2 class="section-title">What's to Eat</h2>
-
-                    <div class="meal-list" id="home-meal-list">
-                        <!-- Meals will be populated here -->
+                    <div class="recipe-search-form">
+                        <input type="text" id="home-meal-input" class="meal-input" placeholder="What do you want to make?">
+                        <button class="add-chore-btn" id="home-get-recipe-btn">
+                            <span class="icon">🍳</span>
+                            Get Recipe
+                        </button>
                     </div>
-                    <button class="add-chore-btn" id="home-add-meal-btn">
-                        <span class="icon">+</span>
-                        Add Meal Idea
-                    </button>
 
                     <div class="recipe-display hidden" id="home-recipe-display">
                         <h3 class="recipe-title" id="home-recipe-title">Recipe</h3>
@@ -65,7 +64,6 @@
                         </div>
                         <div class="recipe-actions">
                             <button class="recipe-action-btn try-again" id="home-try-again-btn">Try Again</button>
-                            <button class="recipe-action-btn order" id="home-order-btn">Order</button>
                         </div>
                     </div>
                 </section>
@@ -282,8 +280,8 @@
                         <!-- Meals will be populated here -->
                     </div>
                     <button class="add-chore-btn" id="add-meal-btn">
-                        <span class="icon">+</span>
-                        Add Meal Idea
+                        <span class="icon">🍳</span>
+                        Get Recipe
                     </button>
 
                     <div class="recipe-display hidden" id="recipe-display">
@@ -531,18 +529,18 @@
         <div id="meal-modal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Add Meal Idea</h2>
+                    <h2>Get Recipe</h2>
                     <button class="close-modal">×</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Meal Name</label>
-                        <input type="text" id="meal-name" placeholder="e.g., Tacos, Spaghetti">
+                        <label>What do you want to make?</label>
+                        <input type="text" id="meal-name" placeholder="e.g., Tacos, Spaghetti, Chicken Stir Fry">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary close-modal">Cancel</button>
-                    <button class="btn btn-primary" id="save-meal">Add Meal</button>
+                    <button class="btn btn-primary" id="save-meal">Get Recipe</button>
                 </div>
             </div>
         </div>

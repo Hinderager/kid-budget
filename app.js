@@ -9,11 +9,106 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 let syncInProgress = false;
 
 // N8N Webhooks
-const N8N_RECIPE_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/recipe-search';
-const N8N_ORDER_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/fred-meyer-order';
+const N8N_RECIPE_URL = 'https://n8n.srv1041426.hstgr.cloud/webhook/fred-meyer-order';
+const N8N_ADD_TO_CART_URL = 'https://n8n.srv1041426.hstgr.cloud/webhook/add-to-cart';
+
+// Kroger OAuth Configuration
+const KROGER_CLIENT_ID = 'recipebuilder-bbc9g9sw';
+const KROGER_REDIRECT_URI = 'https://n8n.srv1041426.hstgr.cloud/webhook/kroger-oauth-callback';
+const KROGER_AUTH_URL = `https://api.kroger.com/v1/connect/oauth2/authorize?scope=cart.basic:write&response_type=code&client_id=${KROGER_CLIENT_ID}&redirect_uri=${encodeURIComponent(KROGER_REDIRECT_URI)}`;
+
 let currentRecipeMealId = null;
 let currentRecipeMealName = null;
 let currentRecipeIngredients = [];
+let currentRecipeProducts = [];
+
+// Kroger Token Management
+function getKrogerToken() {
+    const tokenData = localStorage.getItem('krogerToken');
+    if (!tokenData) return null;
+
+    try {
+        const parsed = JSON.parse(tokenData);
+        // Check if token is expired (with 5 min buffer)
+        if (parsed.expiresAt && Date.now() > parsed.expiresAt - 300000) {
+            localStorage.removeItem('krogerToken');
+            return null;
+        }
+        return parsed;
+    } catch (e) {
+        localStorage.removeItem('krogerToken');
+        return null;
+    }
+}
+
+function setKrogerToken(tokenData) {
+    localStorage.setItem('krogerToken', JSON.stringify(tokenData));
+}
+
+function isKrogerConnected() {
+    return getKrogerToken() !== null;
+}
+
+function disconnectKroger() {
+    localStorage.removeItem('krogerToken');
+    updateKrogerConnectionUI();
+}
+
+function updateKrogerConnectionUI() {
+    const connectBtns = document.querySelectorAll('.kroger-connect-btn');
+    const shopBtns = document.querySelectorAll('.fred-meyer-shop-btn');
+    const isConnected = isKrogerConnected();
+
+    connectBtns.forEach(btn => {
+        if (isConnected) {
+            btn.textContent = '✓ Fred Meyer Connected';
+            btn.classList.add('connected');
+        } else {
+            btn.textContent = '🔗 Connect Fred Meyer Account';
+            btn.classList.remove('connected');
+        }
+    });
+
+    shopBtns.forEach(btn => {
+        if (isConnected) {
+            btn.textContent = '🛒 Add to Fred Meyer Cart';
+        } else {
+            btn.textContent = '🛒 Shop at Fred Meyer';
+        }
+    });
+}
+
+function handleKrogerConnect() {
+    if (isKrogerConnected()) {
+        if (confirm('Disconnect from Fred Meyer account?')) {
+            disconnectKroger();
+        }
+        return;
+    }
+
+    // Open OAuth popup
+    const width = 500;
+    const height = 600;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+
+    window.open(
+        KROGER_AUTH_URL,
+        'kroger-auth',
+        `width=${width},height=${height},left=${left},top=${top}`
+    );
+}
+
+// Listen for OAuth callback message
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'kroger-auth-success') {
+        setKrogerToken(event.data.tokenData);
+        updateKrogerConnectionUI();
+        alert('Successfully connected to Fred Meyer! You can now add items directly to your cart.');
+    } else if (event.data.type === 'kroger-auth-error') {
+        alert('Failed to connect to Fred Meyer: ' + event.data.error);
+    }
+});
 
 // Default data structure
 const defaultData = {
@@ -372,14 +467,24 @@ function updateSyncStatus(status) {
 function checkAndAddAllowance() {
     const now = new Date();
     const currentWeek = getWeekNumber(now);
-    const dayOfWeek = now.getDay(); // 0 = Sunday
 
-    // Only add allowance on Sunday or later in the week if not already added
+    // Convert to MST (Mountain Standard Time = UTC-7)
+    const mstOffset = -7 * 60; // MST offset in minutes
+    const localOffset = now.getTimezoneOffset(); // Local offset in minutes (positive for west of UTC)
+    const mstTime = new Date(now.getTime() + (localOffset + mstOffset) * 60 * 1000);
+
+    const dayOfWeekMST = mstTime.getDay(); // 0 = Sunday
+    const hourMST = mstTime.getHours();
+
+    // Only add allowance on Sunday at midnight MST (hour 0)
+    // Check runs every hour, so we trigger during the midnight hour (0:00-0:59)
+    if (dayOfWeekMST !== 0 || hourMST !== 0) {
+        return; // Not Sunday midnight MST, skip
+    }
+
     ['kylie', 'parker'].forEach(kid => {
         const user = appData.users[kid];
         if (user.lastAllowanceWeek !== currentWeek && user.allowance > 0) {
-            // Check if it's Sunday or if we missed Sunday this week
-            if (dayOfWeek === 0 || (user.lastAllowanceWeek !== currentWeek)) {
                 // Calculate bank portion
                 const bankPercent = user.bankPercent || 0;
                 const bankAmount = (user.allowance * bankPercent) / 100;
@@ -749,19 +854,23 @@ function handleSaveMeal() {
         return;
     }
 
-    appData.meals.push({
+    // Add meal to list and save to Supabase
+    const newMeal = {
         id: appData.nextMealId++,
         name: name,
         quantity: 1
-    });
-
+    };
+    appData.meals.push(newMeal);
     saveData();
+
+    // Close modal and reset form
+    closeModal('meal-modal');
+    document.getElementById('meal-name').value = '';
+
+    // Update UI and get recipe
     updateManageScreen();
     updateHomeMealList();
-    closeModal('meal-modal');
-
-    // Reset form
-    document.getElementById('meal-name').value = '';
+    handleGetRecipe(newMeal.id, name, true);
 }
 
 function handleDeleteMeal(mealId) {
@@ -795,7 +904,7 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
 
     recipeDisplay.classList.remove('hidden');
     recipeTitle.textContent = `Loading ${mealName} Recipe...`;
-    recipeContent.innerHTML = '<div class="recipe-loading">🍳 Finding a great recipe...</div>';
+    recipeContent.innerHTML = '<div class="recipe-loading">🍳 Searching Fred Meyer for recipes...</div>';
     if (tryAgainBtn) tryAgainBtn.disabled = true;
 
     // Update meal list to show selected state
@@ -815,28 +924,89 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
         });
 
         const recipe = await response.json();
+        console.log('Recipe response:', recipe);
 
-        // Store ingredients for ordering
-        currentRecipeIngredients = recipe.ingredients || [];
+        // Check for error - show user-friendly message for "not found"
+        if (recipe.error) {
+            recipeTitle.textContent = 'Recipe Not Found';
+            recipeContent.innerHTML = `<div class="recipe-error">${escapeHtml(recipe.message || 'No recipes found. Try a different search term.')}</div>`;
+            if (tryAgainBtn) tryAgainBtn.disabled = false;
+            return;
+        }
 
-        // Display the recipe
+        // Ensure ingredients and instructions are arrays
+        const ingredients = recipe.ingredients || [];
+        const instructions = recipe.instructions || [];
+
+        // Store ingredients and products for cart functionality
+        currentRecipeIngredients = ingredients;
+        currentRecipeProducts = ingredients
+            .filter(ing => ing.product && ing.product.productId)
+            .map(ing => ing.product);
+
+        // Calculate total price of organic/available products
+        const productsWithPrices = ingredients.filter(ing => ing.product?.price) || [];
+        const totalPrice = productsWithPrices.reduce((sum, ing) => {
+            const price = parseFloat(ing.product.price.replace(/[^0-9.]/g, '')) || 0;
+            return sum + price;
+        }, 0);
+
+        // Count organic products
+        const organicCount = recipe.organicCount || productsWithPrices.filter(ing => ing.product?.isOrganic).length;
+        const totalIngredients = recipe.totalIngredients || ingredients.length;
+
+        // Display the recipe with products
         recipeTitle.textContent = recipe.title || mealName;
         recipeContent.innerHTML = `
-            ${recipe.prepTime ? `<div class="recipe-prep-time">⏱️ ${recipe.prepTime}</div>` : ''}
-            <div class="recipe-ingredients">
-                <h3>Ingredients</h3>
-                <ul>
-                    ${recipe.ingredients.map(ing => `<li>${escapeHtml(ing)}</li>`).join('')}
-                </ul>
+            ${recipe.image ? `<img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="recipe-image">` : ''}
+            <div class="recipe-meta">
+                ${recipe.category ? `<span class="recipe-category">${escapeHtml(recipe.category)}</span>` : ''}
+                ${recipe.cuisine ? `<span class="recipe-cuisine">${escapeHtml(recipe.cuisine)}</span>` : ''}
+                ${recipe.prepTime ? `<span class="recipe-prep-time">⏱️ ${recipe.prepTime}</span>` : ''}
+                ${recipe.servings ? `<span class="recipe-servings">🍽️ ${recipe.servings}</span>` : ''}
             </div>
+
+            <div class="organic-summary">
+                🌿 Found <strong>${organicCount}</strong> organic options out of <strong>${totalIngredients}</strong> ingredients
+            </div>
+
+            <div class="recipe-ingredients">
+                <h3>Ingredients & Fred Meyer Products</h3>
+                <div class="ingredient-products-list">
+                    ${ingredients.map(ing => `
+                        <div class="ingredient-product-item ${ing.product?.isOrganic ? 'organic' : ''}">
+                            <div class="ingredient-needed">
+                                <span class="quantity">${escapeHtml(ing.quantity || '')}</span>
+                                <span class="name">${escapeHtml(ing.name)}</span>
+                            </div>
+                            ${ing.product ? `
+                                <div class="product-match">
+                                    ${ing.product.isOrganic ? '<span class="organic-badge">🌿 Organic</span>' : ''}
+                                    ${ing.product.image ? `<img src="${ing.product.image}" alt="" class="product-thumb">` : ''}
+                                    <span class="product-name">${escapeHtml(ing.product.name)}</span>
+                                    ${ing.product.price ? `<span class="product-price">${escapeHtml(ing.product.price)}</span>` : ''}
+                                </div>
+                            ` : '<div class="product-match not-found">No organic option found</div>'}
+                        </div>
+                    `).join('')}
+                </div>
+                ${totalPrice > 0 ? `<div class="total-estimate">Estimated Total: <strong>${recipe.estimatedTotal || '$' + totalPrice.toFixed(2)}</strong></div>` : ''}
+            </div>
+
             <div class="recipe-instructions">
                 <h3>Instructions</h3>
                 <ol>
-                    ${recipe.instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+                    ${instructions.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
                 </ol>
             </div>
-            <div class="fred-meyer-products hidden" id="${prefix}fred-meyer-products">
-                <!-- Products will be loaded here -->
+
+            <div class="cart-actions">
+                <button class="kroger-connect-btn ${isKrogerConnected() ? 'connected' : ''}" onclick="handleKrogerConnect()">
+                    ${isKrogerConnected() ? '✓ Fred Meyer Connected' : '🔗 Connect Fred Meyer Account'}
+                </button>
+                <button class="fred-meyer-shop-btn" onclick="handleShopAtFredMeyer()">
+                    ${isKrogerConnected() ? '🛒 Add to Fred Meyer Cart' : '🛒 Shop at Fred Meyer'}
+                </button>
             </div>
         `;
 
@@ -947,6 +1117,86 @@ async function handleOrderCurrentMeal(isHomePage = false) {
 function handleOrderMeal(mealName) {
     const searchQuery = encodeURIComponent(mealName + ' delivery near me');
     window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
+}
+
+async function handleShopAtFredMeyer() {
+    const tokenData = getKrogerToken();
+
+    if (!currentRecipeProducts || currentRecipeProducts.length === 0) {
+        // Fallback to searching for ingredients
+        if (currentRecipeIngredients && currentRecipeIngredients.length > 0) {
+            const searchTerms = currentRecipeIngredients
+                .slice(0, 3)
+                .map(ing => ing.name)
+                .join(' ');
+            window.open(`https://www.fredmeyer.com/search?query=${encodeURIComponent(searchTerms)}`, '_blank');
+        } else {
+            window.open('https://www.fredmeyer.com', '_blank');
+        }
+        return;
+    }
+
+    const products = currentRecipeProducts.filter(p => p.upc || p.productId);
+
+    // If connected to Kroger, add to cart via API
+    if (tokenData && tokenData.accessToken && products.length > 0) {
+        const shopBtn = document.querySelector('.fred-meyer-shop-btn');
+        const originalText = shopBtn ? shopBtn.textContent : '';
+
+        try {
+            if (shopBtn) {
+                shopBtn.textContent = 'Adding to cart...';
+                shopBtn.disabled = true;
+            }
+
+            const response = await fetch(N8N_ADD_TO_CART_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    accessToken: tokenData.accessToken,
+                    products: products
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`✓ ${result.message}\n\nOpen Fred Meyer to complete your order.`);
+                window.open('https://www.fredmeyer.com/cart', '_blank');
+            } else if (result.needsReauth) {
+                localStorage.removeItem('krogerToken');
+                updateKrogerConnectionUI();
+                alert('Your Fred Meyer session expired. Please reconnect your account.');
+            } else {
+                alert('Failed to add to cart: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Add to cart error:', error);
+            alert('Failed to add items to cart. Please try again.');
+        } finally {
+            if (shopBtn) {
+                shopBtn.textContent = originalText;
+                shopBtn.disabled = false;
+            }
+        }
+    } else {
+        // Not connected - show shopping list and open Fred Meyer
+        const productList = currentRecipeProducts
+            .map(p => `• ${p.name} - ${p.price}`)
+            .join('\n');
+
+        const message = tokenData
+            ? `Your shopping list:\n\n${productList}\n\nOpening Fred Meyer to search for these items...`
+            : `Connect your Fred Meyer account to add items directly to your cart!\n\nYour shopping list:\n\n${productList}\n\nOpening Fred Meyer...`;
+
+        alert(message);
+
+        if (products.length > 0) {
+            window.open(`https://www.fredmeyer.com/search?query=${encodeURIComponent(products[0].name)}`, '_blank');
+        } else {
+            window.open('https://www.fredmeyer.com', '_blank');
+        }
+    }
 }
 
 // Balance adjustment handler
@@ -1432,6 +1682,11 @@ function handleDeleteTransaction() {
                 user.balance -= transaction.amount;
             }
 
+            // If deleting an allowance transaction, also remove the bank transfer portion
+            if (transaction.type === 'allowance' && transaction.bankPortion > 0) {
+                user.pendingBankTransfer = Math.max(0, (user.pendingBankTransfer || 0) - transaction.bankPortion);
+            }
+
             user.transactions = user.transactions.filter(t => t.id !== currentTransactionId);
         }
 
@@ -1521,23 +1776,26 @@ async function init() {
     document.getElementById('try-again-btn')?.addEventListener('click', () => handleTryAgain(false));
     document.getElementById('order-recipe-btn')?.addEventListener('click', () => handleOrderCurrentMeal(false));
 
-    // Home page meal management
-    document.getElementById('home-add-meal-btn')?.addEventListener('click', () => openModal('meal-modal'));
+    // Home page recipe search - direct input
+    document.getElementById('home-get-recipe-btn')?.addEventListener('click', () => {
+        const mealInput = document.getElementById('home-meal-input');
+        const mealName = mealInput.value.trim();
+        if (!mealName) {
+            alert('Please enter what you want to make');
+            return;
+        }
+        handleGetRecipe(null, mealName, true);
+    });
 
-    // Home page meal list click handler
-    document.getElementById('home-meal-list')?.addEventListener('click', (e) => {
-        const mealItem = e.target.closest('.meal-item');
-        if (mealItem && !e.target.classList.contains('delete-meal-btn')) {
-            const mealId = parseInt(mealItem.dataset.mealId);
-            const mealName = mealItem.dataset.mealName;
-            isHomePageRecipe = true;
-            handleGetRecipe(mealId, mealName, true);
+    // Allow Enter key to trigger recipe search
+    document.getElementById('home-meal-input')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('home-get-recipe-btn').click();
         }
     });
 
     // Home page recipe action buttons
     document.getElementById('home-try-again-btn')?.addEventListener('click', () => handleTryAgain(true));
-    document.getElementById('home-order-btn')?.addEventListener('click', () => handleOrderCurrentMeal(true));
 
     // Allowance changes
     document.getElementById('kylie-allowance').addEventListener('change', handleAllowanceChange);
