@@ -433,14 +433,83 @@ body {
     gap: 12px;
 }
 
-.chore-item .chore-name {
+.chore-item.completed {
+    background: var(--success-light);
+}
+
+.chore-item .chore-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.chore-item .chore-name {
+    font-weight: 500;
+}
+
+.chore-item.completed .chore-name {
+    text-decoration: line-through;
+    color: var(--gray-500);
+}
+
+.chore-item .chore-completed-date {
+    font-size: 0.75rem;
+    color: var(--success);
     font-weight: 500;
 }
 
 .chore-item .chore-value {
     color: var(--success);
     font-weight: 600;
+}
+
+.chore-check {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--gray-300);
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: transparent;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.chore-check:hover {
+    border-color: var(--primary);
+}
+
+.chore-check.checked {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+}
+
+.chore-clear {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: var(--danger-light);
+    color: var(--danger);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.chore-clear:hover {
+    background: var(--danger);
+    color: white;
 }
 
 /* Chore Grid */

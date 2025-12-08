@@ -11,14 +11,22 @@ const defaultData = {
             allowance: 5,
             transactions: [],
             lastAllowanceWeek: null,
-            savingsGoals: []
+            savingsGoals: [],
+            choreCompletions: {}
         },
         parker: {
             balance: 0,
             allowance: 5,
             transactions: [],
             lastAllowanceWeek: null,
-            savingsGoals: []
+            savingsGoals: [],
+            choreCompletions: {}
+        },
+        mom: {
+            choreCompletions: {}
+        },
+        dad: {
+            choreCompletions: {}
         }
     },
     chores: [
@@ -98,6 +106,18 @@ function loadData() {
             if (!appData.users[kid].savingsGoals) {
                 appData.users[kid].savingsGoals = [];
             }
+            if (!appData.users[kid].choreCompletions) {
+                appData.users[kid].choreCompletions = {};
+            }
+        });
+        // Ensure parent users exist for chore completions
+        ['mom', 'dad'].forEach(parent => {
+            if (!appData.users[parent]) {
+                appData.users[parent] = { choreCompletions: {} };
+            }
+            if (!appData.users[parent].choreCompletions) {
+                appData.users[parent].choreCompletions = {};
+            }
         });
     } else {
         appData = JSON.parse(JSON.stringify(defaultData));
@@ -115,6 +135,60 @@ function getTotalSavings(kid) {
 function getAvailableBalance(kid) {
     const user = appData.users[kid];
     return user.balance - getTotalSavings(kid);
+}
+
+// Chore completion helpers
+function getChoreCompletion(person, choreId) {
+    const user = appData.users[person];
+    if (!user || !user.choreCompletions) return null;
+    return user.choreCompletions[choreId] || null;
+}
+
+function formatCompletionDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+}
+
+function toggleChoreCompletion(person, choreId) {
+    const user = appData.users[person];
+    if (!user) return;
+
+    if (user.choreCompletions[choreId]) {
+        // Already completed, remove completion
+        delete user.choreCompletions[choreId];
+    } else {
+        // Mark as completed
+        user.choreCompletions[choreId] = new Date().toISOString();
+    }
+
+    saveData();
+
+    // Update the appropriate screen
+    if (['kylie', 'parker'].includes(person)) {
+        updateKidScreen();
+    } else {
+        updateParentScreen();
+    }
+}
+
+function clearChoreCompletion(person, choreId) {
+    const user = appData.users[person];
+    if (!user || !user.choreCompletions) return;
+
+    delete user.choreCompletions[choreId];
+    saveData();
+
+    // Update the appropriate screen
+    if (['kylie', 'parker'].includes(person)) {
+        updateKidScreen();
+    } else {
+        updateParentScreen();
+    }
 }
 
 function saveData() {
@@ -241,11 +315,22 @@ function updateKidScreen() {
             </div>
         `;
     } else {
-        kidChoreList.innerHTML = kidChores.map(c => `
-            <div class="chore-item">
-                <span class="chore-name">${escapeHtml(c.name)}</span>
-            </div>
-        `).join('');
+        kidChoreList.innerHTML = kidChores.map(c => {
+            const completion = getChoreCompletion(currentPerson, c.id);
+            const isCompleted = !!completion;
+            return `
+                <div class="chore-item ${isCompleted ? 'completed' : ''}" data-chore-id="${c.id}">
+                    <button class="chore-check ${isCompleted ? 'checked' : ''}" data-action="toggle">
+                        ${isCompleted ? '✓' : ''}
+                    </button>
+                    <div class="chore-info">
+                        <span class="chore-name">${escapeHtml(c.name)}</span>
+                        ${isCompleted ? `<span class="chore-completed-date">Done ${formatCompletionDate(completion)}</span>` : ''}
+                    </div>
+                    ${isCompleted ? `<button class="chore-clear" data-action="clear">×</button>` : ''}
+                </div>
+            `;
+        }).join('');
     }
 
     // Update earning options dropdown
@@ -269,11 +354,22 @@ function updateParentScreen() {
             </div>
         `;
     } else {
-        parentChoreList.innerHTML = parentChores.map(c => `
-            <div class="chore-item">
-                <span class="chore-name">${escapeHtml(c.name)}</span>
-            </div>
-        `).join('');
+        parentChoreList.innerHTML = parentChores.map(c => {
+            const completion = getChoreCompletion(currentPerson, c.id);
+            const isCompleted = !!completion;
+            return `
+                <div class="chore-item ${isCompleted ? 'completed' : ''}" data-chore-id="${c.id}">
+                    <button class="chore-check ${isCompleted ? 'checked' : ''}" data-action="toggle">
+                        ${isCompleted ? '✓' : ''}
+                    </button>
+                    <div class="chore-info">
+                        <span class="chore-name">${escapeHtml(c.name)}</span>
+                        ${isCompleted ? `<span class="chore-completed-date">Done ${formatCompletionDate(completion)}</span>` : ''}
+                    </div>
+                    ${isCompleted ? `<button class="chore-clear" data-action="clear">×</button>` : ''}
+                </div>
+            `;
+        }).join('');
     }
 }
 
@@ -803,6 +899,33 @@ function init() {
     document.getElementById('assignee-toggles').addEventListener('click', handleAssigneeToggle);
     document.getElementById('save-chore').addEventListener('click', handleSaveChore);
     document.getElementById('delete-chore').addEventListener('click', handleDeleteChore);
+
+    // Chore completion - kid and parent lists
+    document.getElementById('kid-chore-list').addEventListener('click', (e) => {
+        const choreItem = e.target.closest('.chore-item');
+        if (!choreItem) return;
+        const choreId = parseInt(choreItem.dataset.choreId);
+        const action = e.target.dataset.action;
+
+        if (action === 'toggle') {
+            toggleChoreCompletion(currentPerson, choreId);
+        } else if (action === 'clear') {
+            clearChoreCompletion(currentPerson, choreId);
+        }
+    });
+
+    document.getElementById('parent-chore-list').addEventListener('click', (e) => {
+        const choreItem = e.target.closest('.chore-item');
+        if (!choreItem) return;
+        const choreId = parseInt(choreItem.dataset.choreId);
+        const action = e.target.dataset.action;
+
+        if (action === 'toggle') {
+            toggleChoreCompletion(currentPerson, choreId);
+        } else if (action === 'clear') {
+            clearChoreCompletion(currentPerson, choreId);
+        }
+    });
 
     // Savings goal management
     document.getElementById('add-savings-btn').addEventListener('click', () => openModal('savings-modal'));
