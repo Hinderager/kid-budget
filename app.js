@@ -3,6 +3,11 @@
 
 const STORAGE_KEY = 'familyBudgetData';
 
+// Supabase Configuration
+const SUPABASE_URL = 'https://vxenhaapccmqhvdfkbja.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4ZW5oYWFwY2NtcWh2ZGZrYmphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4ODYyNjEsImV4cCI6MjA4MDQ2MjI2MX0.SSA7QiVgMkw1R9VDbQ7Qf8O-qsX1Cq1RBDGwzYs6wRo';
+let syncInProgress = false;
+
 // Default data structure
 const defaultData = {
     users: {
@@ -136,6 +141,39 @@ function loadData() {
     return appData;
 }
 
+function ensureDataIntegrity() {
+    // Ensure all required fields exist (for backwards compatibility)
+    if (!appData.nextChoreId) appData.nextChoreId = 10;
+    if (!appData.options) appData.options = [{ id: 1, name: 'Mow Lawn', value: 10.00 }];
+    if (!appData.nextOptionId) appData.nextOptionId = 2;
+    ['kylie', 'parker'].forEach(kid => {
+        if (!appData.users[kid].lastAllowanceWeek) {
+            appData.users[kid].lastAllowanceWeek = null;
+        }
+        if (!appData.users[kid].savingsGoals) {
+            appData.users[kid].savingsGoals = [];
+        }
+        if (!appData.users[kid].choreCompletions) {
+            appData.users[kid].choreCompletions = {};
+        }
+        if (appData.users[kid].bankPercent === undefined) {
+            appData.users[kid].bankPercent = 50;
+        }
+        if (appData.users[kid].pendingBankTransfer === undefined) {
+            appData.users[kid].pendingBankTransfer = 0;
+        }
+    });
+    // Ensure parent users exist for chore completions
+    ['mom', 'dad'].forEach(parent => {
+        if (!appData.users[parent]) {
+            appData.users[parent] = { choreCompletions: {} };
+        }
+        if (!appData.users[parent].choreCompletions) {
+            appData.users[parent].choreCompletions = {};
+        }
+    });
+}
+
 // Savings calculations
 function getTotalSavings(kid) {
     const user = appData.users[kid];
@@ -204,6 +242,117 @@ function clearChoreCompletion(person, choreId) {
 
 function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    // Sync to cloud in background
+    syncToCloud();
+}
+
+// Cloud Sync Functions
+async function syncToCloud() {
+    if (syncInProgress) return;
+    syncInProgress = true;
+    updateSyncStatus('syncing');
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/family_budget?id=eq.main`, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const existing = await response.json();
+
+        if (existing.length === 0) {
+            // Insert new record
+            await fetch(`${SUPABASE_URL}/rest/v1/family_budget`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    id: 'main',
+                    data: appData,
+                    updated_at: new Date().toISOString()
+                })
+            });
+        } else {
+            // Update existing record
+            await fetch(`${SUPABASE_URL}/rest/v1/family_budget?id=eq.main`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    data: appData,
+                    updated_at: new Date().toISOString()
+                })
+            });
+        }
+
+        updateSyncStatus('synced');
+    } catch (error) {
+        console.error('Cloud sync error:', error);
+        updateSyncStatus('error');
+    }
+
+    syncInProgress = false;
+}
+
+async function loadFromCloud() {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/family_budget?id=eq.main`, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.length > 0 && data[0].data) {
+            return data[0].data;
+        }
+    } catch (error) {
+        console.error('Cloud load error:', error);
+    }
+
+    return null;
+}
+
+function updateSyncStatus(status) {
+    const indicator = document.getElementById('sync-status');
+    if (!indicator) return;
+
+    indicator.className = 'sync-status ' + status;
+
+    switch (status) {
+        case 'syncing':
+            indicator.textContent = '↻ Syncing...';
+            break;
+        case 'synced':
+            indicator.textContent = '✓ Synced';
+            setTimeout(() => {
+                if (indicator.className.includes('synced')) {
+                    indicator.textContent = '';
+                }
+            }, 2000);
+            break;
+        case 'error':
+            indicator.textContent = '✕ Sync failed';
+            break;
+        default:
+            indicator.textContent = '';
+    }
 }
 
 // Allowance System
@@ -999,8 +1148,24 @@ function handleDeleteTransaction() {
 }
 
 // Initialize App
-function init() {
-    loadData();
+async function init() {
+    // Try to load from cloud first, fall back to localStorage
+    const cloudData = await loadFromCloud();
+    if (cloudData) {
+        appData = cloudData;
+        // Ensure backwards compatibility
+        ensureDataIntegrity();
+        // Also update localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        updateSyncStatus('synced');
+    } else {
+        loadData();
+        // If we have local data, push it to cloud
+        if (appData) {
+            syncToCloud();
+        }
+    }
+
     checkAndAddAllowance();
     updateHomeScreen();
 

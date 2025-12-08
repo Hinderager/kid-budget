@@ -75,6 +75,30 @@ body {
     z-index: 100;
 }
 
+.sync-status {
+    font-size: 12px;
+    opacity: 0.9;
+    min-width: 80px;
+    text-align: right;
+}
+
+.sync-status.syncing {
+    animation: pulse 1s infinite;
+}
+
+.sync-status.synced {
+    color: #a7f3d0;
+}
+
+.sync-status.error {
+    color: #fecaca;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
 .header h1 {
     font-size: 1.25rem;
     font-weight: 600;
