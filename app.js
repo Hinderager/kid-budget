@@ -24,6 +24,50 @@ let currentRecipeProducts = [];
 let currentRecipeData = null; // Store full recipe for saving
 let glutenFreeMode = false;
 let deselectedIngredients = new Set(); // Track ingredients user already has
+let originalServings = 4; // Default servings from recipe
+let currentServings = 4; // User-adjusted servings
+
+// Generate a funny loading poem based on meal name
+function getLoadingPoem(mealName) {
+    const poems = [
+        `🍳 Roses are red,\nViolets are blue,\nWe're cooking up ${mealName},\nJust for you!`,
+        `🥘 In the kitchen we go,\nWith pots all aglow,\nMaking ${mealName}\nIs quite the show!`,
+        `🍴 Chop chop, stir stir,\nWatch the flavors blur,\n${mealName} incoming,\nYou'll love it for sure!`,
+        `👨‍🍳 The chef says "Hey!"\nIt's ${mealName} day!\nHold on tight,\nRecipe's on the way!`,
+        `🌮 One does not simply\nMake ${mealName} fast,\nBut when it's ready,\nThe flavor will last!`,
+        `🍝 Searching high and low,\nFor ${mealName} to make,\nOrganic ingredients,\nFor goodness sake!`,
+        `🥗 If ${mealName} be the food of love,\nCook on! Give me excess of it!`,
+        `🍕 Twinkle twinkle little star,\nHow I wonder what you are,\nUp above Fred Meyer so high,\nFinding ${mealName} to buy!`
+    ];
+    return poems[Math.floor(Math.random() * poems.length)];
+}
+
+// Kroger Token Management (tokens stored server-side in Supabase)
+const SUPABASE_OAUTH_URL = 'https://omcuhcrwycvakrbhvvwy.supabase.co';
+const SUPABASE_OAUTH_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tY3VoY3J3eWN2YWtyYmh2dnd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MzQ3OTIsImV4cCI6MjA3ODQxMDc5Mn0.tRUG6NxJBPKlg9lbNEuOYwMQflj3nixfcrUXZ3DXQF0';
+let krogerConnected = false;
+
+async function checkKrogerConnection() {
+    try {
+        const response = await fetch(`${SUPABASE_OAUTH_URL}/rest/v1/oauth_tokens?provider=eq.kroger&select=expires_at`, {
+            headers: {
+                'apikey': SUPABASE_OAUTH_KEY,
+                'Authorization': `Bearer ${SUPABASE_OAUTH_KEY}`
+            }
+        });
+        const data = await response.json();
+        if (data && data.length > 0 && data[0].expires_at) {
+            krogerConnected = new Date(data[0].expires_at) > new Date();
+        } else {
+            krogerConnected = false;
+        }
+    } catch (e) {
+        console.error('Failed to check Kroger connection:', e);
+        krogerConnected = false;
+    }
+    updateKrogerConnectionUI();
+    return krogerConnected;
+}
 
 // Kroger Token Management
 function getKrogerToken() {
@@ -49,11 +93,12 @@ function setKrogerToken(tokenData) {
 }
 
 function isKrogerConnected() {
-    return getKrogerToken() !== null;
+    return krogerConnected;
 }
 
-function disconnectKroger() {
+async function disconnectKroger() {
     localStorage.removeItem('krogerToken');
+    krogerConnected = false;
     updateKrogerConnectionUI();
 }
 
@@ -103,10 +148,10 @@ function handleKrogerConnect() {
 }
 
 // Listen for OAuth callback message
-window.addEventListener('message', function(event) {
+window.addEventListener('message', async function(event) {
     if (event.data.type === 'kroger-auth-success') {
-        setKrogerToken(event.data.tokenData);
-        updateKrogerConnectionUI();
+        // Token is stored in Supabase by n8n workflow, just refresh connection status
+        await checkKrogerConnection();
         alert('Successfully connected to Fred Meyer! You can now add items directly to your cart.');
     } else if (event.data.type === 'kroger-auth-error') {
         alert('Failed to connect to Fred Meyer: ' + event.data.error);
@@ -909,7 +954,8 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
 
     recipeDisplay.classList.remove('hidden');
     recipeTitle.textContent = `Loading ${mealName} Recipe...`;
-    recipeContent.innerHTML = '<div class="recipe-loading">🍳 Searching Fred Meyer for recipes...</div>';
+    const poem = getLoadingPoem(mealName);
+    recipeContent.innerHTML = `<div class="recipe-loading"><pre class="loading-poem">${poem}</pre></div>`;
     if (tryAgainBtn) tryAgainBtn.disabled = true;
 
     // Reset deselected ingredients for new recipe
@@ -948,7 +994,21 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
 
         // Store recipe data for saving and cart functionality
         currentRecipeData = recipe;
-        currentRecipeIngredients = ingredients;
+
+        // Parse servings from recipe (default to 4)
+        let parsedServings = 4;
+        if (recipe.servings) {
+            const servingsMatch = recipe.servings.match(/(\d+)/);
+            if (servingsMatch) parsedServings = parseInt(servingsMatch[1]);
+        }
+        originalServings = parsedServings;
+        currentServings = parsedServings;
+
+        // Store original quantities for scaling
+        currentRecipeIngredients = ingredients.map(ing => ({
+            ...ing,
+            originalQuantity: ing.quantity
+        }));
         currentRecipeProducts = ingredients
             .filter(ing => ing.product && ing.product.productId)
             .map(ing => ing.product);
@@ -980,7 +1040,11 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
                 ${recipe.category ? `<span class="recipe-category">${escapeHtml(recipe.category)}</span>` : ''}
                 ${recipe.cuisine ? `<span class="recipe-cuisine">${escapeHtml(recipe.cuisine)}</span>` : ''}
                 ${recipe.prepTime ? `<span class="recipe-prep-time">⏱️ ${recipe.prepTime}</span>` : ''}
-                ${recipe.servings ? `<span class="recipe-servings">🍽️ ${recipe.servings}</span>` : ''}
+            </div>
+
+            <div class="servings-control">
+                <label>🍽️ Servings: <span id="servings-value">${originalServings}</span></label>
+                <input type="range" id="servings-slider" min="1" max="12" value="${originalServings}" oninput="handleServingsChange(this.value)">
             </div>
 
             <div class="organic-summary">
@@ -1004,7 +1068,8 @@ async function handleGetRecipe(mealId, mealName, isHomePage = false) {
                                     <span class="product-name">${escapeHtml(ing.product.name)}</span>
                                     ${ing.product.price ? `<span class="product-price">${escapeHtml(ing.product.price)}</span>` : ''}
                                 </div>
-                            ` : '<div class="product-match not-found">No organic option found</div>'}
+                            ` : '<div class="product-match not-found">Search on Fred Meyer →</div>'}
+                            <button class="go-btn" onclick="event.stopPropagation(); openFredMeyerProduct('${ing.product?.productId || ''}', '${escapeHtml(ing.product?.name || ing.name).replace(/'/g, "\\'")}')" title="View on Fred Meyer">Go</button>
                         </div>
                     `).join('')}
                 </div>
@@ -1151,11 +1216,30 @@ function loadSavedRecipe(recipeTitle) {
             <button class="star-recipe-btn saved" onclick="toggleSaveRecipe()" title="Remove from favorites">★</button>
         `;
 
+        // Parse servings for saved recipe
+        let savedServings = 4;
+        if (recipe.servings) {
+            const servingsMatch = recipe.servings.match(/(\d+)/);
+            if (servingsMatch) savedServings = parseInt(servingsMatch[1]);
+        }
+        originalServings = savedServings;
+        currentServings = savedServings;
+
+        // Store original quantities for scaling
+        currentRecipeIngredients = currentRecipeIngredients.map(ing => ({
+            ...ing,
+            originalQuantity: ing.originalQuantity || ing.quantity
+        }));
+
         recipeContent.innerHTML = `
             ${recipe.image ? `<img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="recipe-image">` : ''}
             <div class="recipe-meta">
                 ${recipe.prepTime ? `<span class="recipe-prep-time">⏱️ ${recipe.prepTime}</span>` : ''}
-                ${recipe.servings ? `<span class="recipe-servings">🍽️ ${recipe.servings}</span>` : ''}
+            </div>
+
+            <div class="servings-control">
+                <label>🍽️ Servings: <span id="servings-value">${originalServings}</span></label>
+                <input type="range" id="servings-slider" min="1" max="12" value="${originalServings}" oninput="handleServingsChange(this.value)">
             </div>
 
             <div class="recipe-ingredients">
@@ -1175,7 +1259,8 @@ function loadSavedRecipe(recipeTitle) {
                                     <span class="product-name">${escapeHtml(ing.product.name)}</span>
                                     ${ing.product.price ? `<span class="product-price">${escapeHtml(ing.product.price)}</span>` : ''}
                                 </div>
-                            ` : '<div class="product-match not-found">No product found</div>'}
+                            ` : '<div class="product-match not-found">Search on Fred Meyer →</div>'}
+                            <button class="go-btn" onclick="event.stopPropagation(); openFredMeyerProduct('${ing.product?.productId || ''}', '${escapeHtml(ing.product?.name || ing.name).replace(/'/g, "\\'")}')" title="View on Fred Meyer">Go</button>
                         </div>
                     `).join('')}
                 </div>
@@ -1198,6 +1283,84 @@ function loadSavedRecipe(recipeTitle) {
 
         recipeDisplay.scrollIntoView({ behavior: 'smooth' });
     }
+}
+
+// Open Fred Meyer product page directly
+function openFredMeyerProduct(productId, productName) {
+    if (productId) {
+        // Direct link to product page using Kroger product ID
+        window.open(`https://www.fredmeyer.com/p/-/${productId}`, '_blank');
+    } else {
+        // Fallback to search if no product ID
+        window.open(`https://www.fredmeyer.com/search?query=${encodeURIComponent(productName)}`, '_blank');
+    }
+}
+
+// Scale ingredient quantity based on servings
+function scaleQuantity(originalQty, originalServings, newServings) {
+    if (!originalQty || originalServings === newServings) return originalQty;
+
+    // Try to parse numeric values from the quantity string
+    const match = originalQty.match(/^([\d.\/]+)\s*(.*)$/);
+    if (!match) return originalQty;
+
+    let numericPart = match[1];
+    const unitPart = match[2];
+
+    // Handle fractions like "1/2"
+    if (numericPart.includes('/')) {
+        const [num, denom] = numericPart.split('/');
+        numericPart = parseFloat(num) / parseFloat(denom);
+    } else {
+        numericPart = parseFloat(numericPart);
+    }
+
+    if (isNaN(numericPart)) return originalQty;
+
+    const scaledValue = (numericPart * newServings) / originalServings;
+
+    // Format nicely - convert to fraction if close to common fractions
+    let formatted;
+    if (scaledValue === Math.floor(scaledValue)) {
+        formatted = scaledValue.toString();
+    } else if (Math.abs(scaledValue - 0.25) < 0.01) {
+        formatted = '1/4';
+    } else if (Math.abs(scaledValue - 0.5) < 0.01) {
+        formatted = '1/2';
+    } else if (Math.abs(scaledValue - 0.75) < 0.01) {
+        formatted = '3/4';
+    } else if (Math.abs(scaledValue - 0.33) < 0.01) {
+        formatted = '1/3';
+    } else if (Math.abs(scaledValue - 0.67) < 0.01) {
+        formatted = '2/3';
+    } else {
+        formatted = scaledValue.toFixed(1).replace(/\.0$/, '');
+    }
+
+    return unitPart ? `${formatted} ${unitPart}` : formatted;
+}
+
+// Handle servings slider change
+function handleServingsChange(newServings) {
+    currentServings = parseInt(newServings);
+
+    // Update servings display
+    const servingsValue = document.getElementById('servings-value');
+    if (servingsValue) {
+        servingsValue.textContent = currentServings;
+    }
+
+    // Update all ingredient quantities
+    const quantityElements = document.querySelectorAll('.ingredient-needed .quantity');
+    quantityElements.forEach((el, index) => {
+        const ing = currentRecipeIngredients[index];
+        if (ing && ing.originalQuantity) {
+            el.textContent = scaleQuantity(ing.originalQuantity, originalServings, currentServings);
+        }
+    });
+
+    // Update total estimate
+    updateTotalEstimate();
 }
 
 // Toggle ingredient selection (for items user already has)
@@ -1387,7 +1550,7 @@ async function handleShopAtFredMeyer() {
                 window.open('https://www.fredmeyer.com/cart', '_blank');
             } else if (result.needsReauth) {
                 localStorage.removeItem('krogerToken');
-                updateKrogerConnectionUI();
+                await checkKrogerConnection();
                 alert('Your Fred Meyer session expired. Please reconnect your account.');
             } else {
                 alert('Failed to add to cart: ' + result.message);
@@ -1940,6 +2103,7 @@ async function init() {
     }
 
     checkAndAddAllowance();
+    await checkKrogerConnection();
     updateHomeScreen();
 
     // Person selection
