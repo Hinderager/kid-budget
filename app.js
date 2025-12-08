@@ -10,13 +10,15 @@ const defaultData = {
             balance: 0,
             allowance: 5,
             transactions: [],
-            lastAllowanceWeek: null
+            lastAllowanceWeek: null,
+            savingsGoals: []
         },
         parker: {
             balance: 0,
             allowance: 5,
             transactions: [],
-            lastAllowanceWeek: null
+            lastAllowanceWeek: null,
+            savingsGoals: []
         }
     },
     chores: [
@@ -41,6 +43,7 @@ const defaultData = {
 let appData = null;
 let currentPerson = null;
 let editingChoreId = null;
+let currentSavingsGoalId = null;
 
 // Utility Functions
 function generateId() {
@@ -92,11 +95,26 @@ function loadData() {
             if (!appData.users[kid].lastAllowanceWeek) {
                 appData.users[kid].lastAllowanceWeek = null;
             }
+            if (!appData.users[kid].savingsGoals) {
+                appData.users[kid].savingsGoals = [];
+            }
         });
     } else {
         appData = JSON.parse(JSON.stringify(defaultData));
     }
     return appData;
+}
+
+// Savings calculations
+function getTotalSavings(kid) {
+    const user = appData.users[kid];
+    if (!user.savingsGoals) return 0;
+    return user.savingsGoals.reduce((sum, goal) => sum + goal.savedAmount, 0);
+}
+
+function getAvailableBalance(kid) {
+    const user = appData.users[kid];
+    return user.balance - getTotalSavings(kid);
 }
 
 function saveData() {
@@ -149,9 +167,42 @@ function updateKidScreen() {
     if (!currentPerson || !['kylie', 'parker'].includes(currentPerson)) return;
 
     const user = appData.users[currentPerson];
+    const availableBalance = getAvailableBalance(currentPerson);
+    const totalSavings = getTotalSavings(currentPerson);
+
     document.getElementById('kid-name').textContent = currentPerson.charAt(0).toUpperCase() + currentPerson.slice(1);
-    document.getElementById('kid-balance').textContent = formatCurrency(user.balance);
-    document.getElementById('allowance-info').textContent = `Allowance: ${formatCurrency(user.allowance)}/week`;
+    document.getElementById('kid-balance').textContent = formatCurrency(availableBalance);
+
+    // Show total balance if there are savings
+    let allowanceText = `Allowance: ${formatCurrency(user.allowance)}/week`;
+    if (totalSavings > 0) {
+        allowanceText += ` • Total: ${formatCurrency(user.balance)}`;
+    }
+    document.getElementById('allowance-info').textContent = allowanceText;
+
+    // Update savings goals list
+    const savingsGoalsList = document.getElementById('savings-goals-list');
+    if (!user.savingsGoals || user.savingsGoals.length === 0) {
+        savingsGoalsList.innerHTML = `<div class="savings-empty">No savings goals yet</div>`;
+    } else {
+        savingsGoalsList.innerHTML = user.savingsGoals.map(goal => {
+            const progress = goal.targetAmount > 0 ? Math.min(100, (goal.savedAmount / goal.targetAmount) * 100) : 0;
+            const isCompleted = goal.savedAmount >= goal.targetAmount;
+            return `
+                <div class="savings-goal-item ${isCompleted ? 'completed' : ''}" data-goal-id="${goal.id}">
+                    <div class="goal-info">
+                        <span class="goal-name">${escapeHtml(goal.name)}</span>
+                        <span class="goal-amounts">
+                            <span class="saved">${formatCurrency(goal.savedAmount)}</span> / ${formatCurrency(goal.targetAmount)}
+                        </span>
+                    </div>
+                    <div class="goal-progress-bar">
+                        <div class="goal-progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 
     // Update transaction list
     const transactionList = document.getElementById('transaction-list');
@@ -536,7 +587,6 @@ function openChoreModal() {
 
     // Reset form
     document.getElementById('chore-name').value = '';
-    document.getElementById('chore-value').value = '';
     document.querySelectorAll('.assignee-toggle').forEach(t => t.classList.remove('active'));
 
     title.textContent = 'Add Chore';
@@ -581,6 +631,122 @@ function handleDeleteChore() {
         saveData();
         updateManageScreen();
         closeModal('chore-modal');
+    }
+}
+
+// Savings Goal Handlers
+function handleAddSavingsGoal() {
+    const name = document.getElementById('savings-name').value.trim();
+    const targetAmount = parseFloat(document.getElementById('savings-target').value) || 0;
+    const initialAmount = parseFloat(document.getElementById('savings-initial').value) || 0;
+
+    if (!name) {
+        alert('Please enter what you\'re saving for');
+        return;
+    }
+
+    if (targetAmount <= 0) {
+        alert('Please enter a goal amount');
+        return;
+    }
+
+    const user = appData.users[currentPerson];
+    const availableBalance = getAvailableBalance(currentPerson);
+
+    if (initialAmount > availableBalance) {
+        alert(`You only have ${formatCurrency(availableBalance)} available to put towards savings`);
+        return;
+    }
+
+    user.savingsGoals.push({
+        id: generateId(),
+        name: name,
+        targetAmount: targetAmount,
+        savedAmount: initialAmount,
+        createdAt: new Date().toISOString()
+    });
+
+    saveData();
+    updateKidScreen();
+    updateHomeScreen();
+    closeModal('savings-modal');
+
+    // Reset form
+    document.getElementById('savings-name').value = '';
+    document.getElementById('savings-target').value = '';
+    document.getElementById('savings-initial').value = '';
+}
+
+function openManageSavingsModal(goalId) {
+    currentSavingsGoalId = goalId;
+    const user = appData.users[currentPerson];
+    const goal = user.savingsGoals.find(g => g.id === goalId);
+
+    if (!goal) return;
+
+    document.getElementById('manage-savings-title').textContent = goal.name;
+    document.getElementById('manage-goal-saved').textContent = formatCurrency(goal.savedAmount);
+    document.getElementById('manage-goal-target').textContent = formatCurrency(goal.targetAmount);
+
+    const progress = goal.targetAmount > 0 ? Math.min(100, (goal.savedAmount / goal.targetAmount) * 100) : 0;
+    document.getElementById('manage-goal-progress').style.width = `${progress}%`;
+
+    document.getElementById('savings-adjust-amount').value = '';
+
+    openModal('manage-savings-modal');
+}
+
+function handleSavingsAdjust(action) {
+    const amount = parseFloat(document.getElementById('savings-adjust-amount').value);
+
+    if (!amount || amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+
+    const user = appData.users[currentPerson];
+    const goal = user.savingsGoals.find(g => g.id === currentSavingsGoalId);
+
+    if (!goal) return;
+
+    if (action === 'add') {
+        const availableBalance = getAvailableBalance(currentPerson);
+        if (amount > availableBalance) {
+            alert(`You only have ${formatCurrency(availableBalance)} available to add to savings`);
+            return;
+        }
+        goal.savedAmount += amount;
+    } else {
+        if (amount > goal.savedAmount) {
+            alert(`You can only remove up to ${formatCurrency(goal.savedAmount)}`);
+            return;
+        }
+        goal.savedAmount -= amount;
+    }
+
+    saveData();
+    updateKidScreen();
+    updateHomeScreen();
+
+    // Update the modal display
+    document.getElementById('manage-goal-saved').textContent = formatCurrency(goal.savedAmount);
+    const progress = goal.targetAmount > 0 ? Math.min(100, (goal.savedAmount / goal.targetAmount) * 100) : 0;
+    document.getElementById('manage-goal-progress').style.width = `${progress}%`;
+    document.getElementById('savings-adjust-amount').value = '';
+}
+
+function handleDeleteSavingsGoal() {
+    if (!currentSavingsGoalId) return;
+
+    if (confirm('Delete this savings goal? The money will return to your available balance.')) {
+        const user = appData.users[currentPerson];
+        user.savingsGoals = user.savingsGoals.filter(g => g.id !== currentSavingsGoalId);
+        currentSavingsGoalId = null;
+
+        saveData();
+        updateKidScreen();
+        updateHomeScreen();
+        closeModal('manage-savings-modal');
     }
 }
 
@@ -637,6 +803,19 @@ function init() {
     document.getElementById('assignee-toggles').addEventListener('click', handleAssigneeToggle);
     document.getElementById('save-chore').addEventListener('click', handleSaveChore);
     document.getElementById('delete-chore').addEventListener('click', handleDeleteChore);
+
+    // Savings goal management
+    document.getElementById('add-savings-btn').addEventListener('click', () => openModal('savings-modal'));
+    document.getElementById('save-savings-goal').addEventListener('click', handleAddSavingsGoal);
+    document.getElementById('savings-goals-list').addEventListener('click', (e) => {
+        const goalItem = e.target.closest('.savings-goal-item');
+        if (goalItem) {
+            openManageSavingsModal(goalItem.dataset.goalId);
+        }
+    });
+    document.getElementById('savings-add-btn').addEventListener('click', () => handleSavingsAdjust('add'));
+    document.getElementById('savings-remove-btn').addEventListener('click', () => handleSavingsAdjust('remove'));
+    document.getElementById('delete-savings-goal').addEventListener('click', handleDeleteSavingsGoal);
 
     // Close modals
     document.querySelectorAll('.close-modal').forEach(btn => {

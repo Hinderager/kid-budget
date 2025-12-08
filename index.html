@@ -73,6 +73,16 @@
                     </button>
                 </div>
 
+                <div class="savings-section" id="savings-section">
+                    <div class="savings-header">
+                        <h3>Saving For...</h3>
+                        <button class="add-savings-btn" id="add-savings-btn">+ Add Goal</button>
+                    </div>
+                    <div class="savings-goals-list" id="savings-goals-list">
+                        <!-- Savings goals will be populated here -->
+                    </div>
+                </div>
+
                 <div class="tabs">
                     <button class="tab active" data-tab="history">History</button>
                     <button class="tab" data-tab="chores">My Chores</button>
@@ -317,6 +327,77 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary close-modal">Cancel</button>
                     <button class="btn btn-primary" id="save-option">Save Option</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Savings Goal Modal -->
+        <div id="savings-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="savings-modal-title">Add Savings Goal</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>What are you saving for?</label>
+                        <input type="text" id="savings-name" placeholder="e.g., New Video Game">
+                    </div>
+                    <div class="form-group">
+                        <label>Goal Amount</label>
+                        <div class="input-group large">
+                            <span class="currency">$</span>
+                            <input type="number" id="savings-target" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Start with (optional)</label>
+                        <div class="input-group">
+                            <span class="currency">$</span>
+                            <input type="number" id="savings-initial" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-savings-goal">Add Goal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Savings Goal Modal -->
+        <div id="manage-savings-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="manage-savings-title">Savings Goal</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="savings-goal-detail">
+                        <div class="goal-progress-display">
+                            <span class="goal-saved" id="manage-goal-saved">$0.00</span>
+                            <span class="goal-separator">of</span>
+                            <span class="goal-target" id="manage-goal-target">$0.00</span>
+                        </div>
+                        <div class="goal-progress-bar">
+                            <div class="goal-progress-fill" id="manage-goal-progress"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Add or Remove Money</label>
+                        <div class="savings-adjust-controls">
+                            <div class="input-group">
+                                <span class="currency">$</span>
+                                <input type="number" id="savings-adjust-amount" min="0" step="0.01" placeholder="0.00">
+                            </div>
+                            <button class="adj-btn add" id="savings-add-btn">+</button>
+                            <button class="adj-btn subtract" id="savings-remove-btn">−</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" id="delete-savings-goal">Delete Goal</button>
+                    <button class="btn btn-secondary close-modal">Close</button>
                 </div>
             </div>
         </div>
