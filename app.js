@@ -11,6 +11,7 @@ let syncInProgress = false;
 // N8N Recipe Webhook
 const N8N_RECIPE_URL = 'https://n8n.srv768302.hstgr.cloud/webhook/recipe-search';
 let currentRecipeMealId = null;
+let currentRecipeMealName = null;
 
 // Default data structure
 const defaultData = {
@@ -642,24 +643,11 @@ function updateManageScreen() {
         `;
     } else {
         mealsList.innerHTML = appData.meals.map(m => {
-            const hasRecipeLoaded = currentRecipeMealId === m.id;
+            const isSelected = currentRecipeMealId === m.id;
             return `
-            <div class="meal-item" data-meal-id="${m.id}">
-                <div class="meal-header">
-                    <span class="meal-name">${escapeHtml(m.name)}</span>
-                    <button class="delete-meal-btn" onclick="handleDeleteMeal(${m.id})">×</button>
-                </div>
-                <div class="meal-controls">
-                    <div class="meal-buttons">
-                        <button class="meal-btn recipe" onclick="handleGetRecipe(${m.id}, '${escapeHtml(m.name).replace(/'/g, "\\'")}')">${hasRecipeLoaded ? 'Try Again' : 'Get Recipe'}</button>
-                        <button class="meal-btn order" onclick="handleOrderMeal('${escapeHtml(m.name).replace(/'/g, "\\'")}')">Order</button>
-                    </div>
-                    <div class="meal-quantity">
-                        <button class="qty-btn" onclick="handleMealQuantityChange(${m.id}, -1)">−</button>
-                        <span class="qty-value">${m.quantity || 1}</span>
-                        <button class="qty-btn" onclick="handleMealQuantityChange(${m.id}, 1)">+</button>
-                    </div>
-                </div>
+            <div class="meal-item ${isSelected ? 'selected' : ''}" data-meal-id="${m.id}" data-meal-name="${escapeHtml(m.name)}">
+                <span class="meal-name">${escapeHtml(m.name)}</span>
+                <button class="delete-meal-btn" onclick="event.stopPropagation(); handleDeleteMeal(${m.id})">×</button>
             </div>
         `}).join('');
     }
@@ -764,18 +752,21 @@ function handleMealQuantityChange(mealId, delta) {
 
 async function handleGetRecipe(mealId, mealName) {
     currentRecipeMealId = mealId;
+    currentRecipeMealName = mealName;
 
     // Show loading state
-    const recipeSection = document.getElementById('recipe-section');
+    const recipeDisplay = document.getElementById('recipe-display');
     const recipeTitle = document.getElementById('recipe-title');
     const recipeContent = document.getElementById('recipe-content');
+    const tryAgainBtn = document.getElementById('try-again-btn');
 
-    recipeSection.classList.remove('hidden');
+    recipeDisplay.classList.remove('hidden');
     recipeTitle.textContent = `Loading ${mealName} Recipe...`;
     recipeContent.innerHTML = '<div class="recipe-loading">🍳 Finding a great recipe...</div>';
+    tryAgainBtn.disabled = true;
 
-    // Update button to show loading
-    updateMealButton(mealId, 'loading');
+    // Update meal list to show selected state
+    updateManageScreen();
 
     try {
         const response = await fetch(N8N_RECIPE_URL, {
@@ -806,42 +797,28 @@ async function handleGetRecipe(mealId, mealName) {
             </div>
         `;
 
-        // Update button to "Try Again"
-        updateMealButton(mealId, 'loaded');
+        tryAgainBtn.disabled = false;
 
         // Scroll to recipe
-        recipeSection.scrollIntoView({ behavior: 'smooth' });
+        recipeDisplay.scrollIntoView({ behavior: 'smooth' });
 
     } catch (error) {
         console.error('Recipe fetch error:', error);
         recipeContent.innerHTML = '<div class="recipe-error">Failed to load recipe. Please try again.</div>';
-        updateMealButton(mealId, 'error');
+        tryAgainBtn.disabled = false;
     }
 }
 
-function updateMealButton(mealId, state) {
-    const btn = document.querySelector(`.meal-item[data-meal-id="${mealId}"] .meal-btn.recipe`);
-    if (!btn) return;
+function handleTryAgain() {
+    if (currentRecipeMealId && currentRecipeMealName) {
+        handleGetRecipe(currentRecipeMealId, currentRecipeMealName);
+    }
+}
 
-    const meal = appData.meals.find(m => m.id === mealId);
-    if (!meal) return;
-
-    switch (state) {
-        case 'loading':
-            btn.textContent = 'Loading...';
-            btn.disabled = true;
-            break;
-        case 'loaded':
-            btn.textContent = 'Try Again';
-            btn.disabled = false;
-            break;
-        case 'error':
-            btn.textContent = 'Retry';
-            btn.disabled = false;
-            break;
-        default:
-            btn.textContent = 'Get Recipe';
-            btn.disabled = false;
+function handleOrderCurrentMeal() {
+    if (currentRecipeMealName) {
+        const searchQuery = encodeURIComponent(currentRecipeMealName + ' delivery near me');
+        window.open(`https://www.google.com/search?q=${searchQuery}`, '_blank');
     }
 }
 
@@ -1379,6 +1356,20 @@ async function init() {
     // Meal management
     document.getElementById('add-meal-btn').addEventListener('click', () => openModal('meal-modal'));
     document.getElementById('save-meal').addEventListener('click', handleSaveMeal);
+
+    // Meal list click handler - get recipe when clicking a meal
+    document.getElementById('meal-list').addEventListener('click', (e) => {
+        const mealItem = e.target.closest('.meal-item');
+        if (mealItem && !e.target.classList.contains('delete-meal-btn')) {
+            const mealId = parseInt(mealItem.dataset.mealId);
+            const mealName = mealItem.dataset.mealName;
+            handleGetRecipe(mealId, mealName);
+        }
+    });
+
+    // Recipe action buttons
+    document.getElementById('try-again-btn').addEventListener('click', handleTryAgain);
+    document.getElementById('order-recipe-btn').addEventListener('click', handleOrderCurrentMeal);
 
     // Allowance changes
     document.getElementById('kylie-allowance').addEventListener('change', handleAllowanceChange);
