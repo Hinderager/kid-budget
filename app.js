@@ -204,9 +204,11 @@ const defaultData = {
     ],
     meals: [],
     savedRecipes: [],
+    moolahJobs: [],
     nextChoreId: 10,
     nextOptionId: 2,
-    nextMealId: 1
+    nextMealId: 1,
+    nextMoolahId: 1
 };
 
 // State
@@ -215,6 +217,7 @@ let currentPerson = null;
 let editingChoreId = null;
 let currentSavingsGoalId = null;
 let currentTransactionId = null;
+let currentMoolahJobId = null;
 
 // Utility Functions
 function generateId() {
@@ -265,6 +268,8 @@ function loadData() {
         if (!appData.meals) appData.meals = [];
         if (!appData.savedRecipes) appData.savedRecipes = [];
         if (!appData.nextMealId) appData.nextMealId = 1;
+        if (!appData.moolahJobs) appData.moolahJobs = [];
+        if (!appData.nextMoolahId) appData.nextMoolahId = 1;
         ['kylie', 'parker'].forEach(kid => {
             if (!appData.users[kid].lastAllowanceWeek) {
                 appData.users[kid].lastAllowanceWeek = null;
@@ -305,6 +310,8 @@ function ensureDataIntegrity() {
     if (!appData.meals) appData.meals = [];
     if (!appData.savedRecipes) appData.savedRecipes = [];
     if (!appData.nextMealId) appData.nextMealId = 1;
+    if (!appData.moolahJobs) appData.moolahJobs = [];
+    if (!appData.nextMoolahId) appData.nextMoolahId = 1;
     ['kylie', 'parker'].forEach(kid => {
         if (!appData.users[kid].lastAllowanceWeek) {
             appData.users[kid].lastAllowanceWeek = null;
@@ -937,6 +944,124 @@ function handleMealQuantityChange(mealId, delta) {
         saveData();
         updateManageScreen();
     }
+}
+
+// Moolah Job Handlers
+function updateMoolahScreen() {
+    const moolahList = document.getElementById('moolah-chore-list');
+    if (!moolahList) return;
+
+    if (!appData.moolahJobs || appData.moolahJobs.length === 0) {
+        moolahList.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">💼</div>
+                <p>No jobs available right now</p>
+                <p class="hint">Add a job to earn some extra money!</p>
+            </div>
+        `;
+    } else {
+        moolahList.innerHTML = appData.moolahJobs.map(job => `
+            <div class="moolah-job-card" data-job-id="${job.id}">
+                <div class="moolah-job-header">
+                    <h3 class="moolah-job-title">${escapeHtml(job.title)}</h3>
+                    <span class="moolah-job-pay">${formatCurrency(job.amount)}</span>
+                </div>
+                ${job.description ? `<p class="moolah-job-description">${escapeHtml(job.description)}</p>` : ''}
+                <div class="moolah-job-actions">
+                    <button class="btn btn-primary moolah-complete-btn" data-job-id="${job.id}">I Did It!</button>
+                    <button class="btn btn-danger moolah-delete-btn" data-job-id="${job.id}">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function handleSaveMoolah() {
+    const title = document.getElementById('moolah-title').value.trim();
+    const description = document.getElementById('moolah-description').value.trim();
+    const amount = parseFloat(document.getElementById('moolah-amount').value) || 0;
+
+    if (!title) {
+        alert('Please enter a job title');
+        return;
+    }
+
+    if (amount <= 0) {
+        alert('Please enter a pay amount');
+        return;
+    }
+
+    appData.moolahJobs.push({
+        id: appData.nextMoolahId++,
+        title: title,
+        description: description,
+        amount: amount,
+        createdAt: new Date().toISOString()
+    });
+
+    saveData();
+    updateMoolahScreen();
+    closeModal('moolah-modal');
+
+    // Reset form
+    document.getElementById('moolah-title').value = '';
+    document.getElementById('moolah-description').value = '';
+    document.getElementById('moolah-amount').value = '';
+}
+
+function handleDeleteMoolah(jobId) {
+    if (confirm('Delete this job?')) {
+        appData.moolahJobs = appData.moolahJobs.filter(j => j.id !== jobId);
+        saveData();
+        updateMoolahScreen();
+    }
+}
+
+function openCompleteMoolahModal(jobId) {
+    const job = appData.moolahJobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    currentMoolahJobId = jobId;
+
+    document.getElementById('complete-moolah-title').textContent = job.title;
+    document.getElementById('complete-moolah-description').textContent = job.description || '';
+    document.getElementById('complete-moolah-amount').textContent = formatCurrency(job.amount);
+
+    openModal('complete-moolah-modal');
+}
+
+function handleCompleteMoolah(person) {
+    if (!currentMoolahJobId) return;
+
+    const job = appData.moolahJobs.find(j => j.id === currentMoolahJobId);
+    if (!job) return;
+
+    const user = appData.users[person];
+    const personName = person.charAt(0).toUpperCase() + person.slice(1);
+
+    // Add to balance
+    user.balance += job.amount;
+
+    // Add transaction to history
+    user.transactions.unshift({
+        id: generateId(),
+        type: 'earning',
+        amount: job.amount,
+        description: `Moolah Job: ${job.title}`,
+        date: new Date().toISOString()
+    });
+
+    // Remove the completed job
+    appData.moolahJobs = appData.moolahJobs.filter(j => j.id !== currentMoolahJobId);
+
+    currentMoolahJobId = null;
+
+    saveData();
+    updateMoolahScreen();
+    updateHomeScreen();
+    closeModal('complete-moolah-modal');
+
+    alert(`Great job, ${personName}! ${formatCurrency(job.amount)} has been added to your balance!`);
 }
 
 async function handleGetRecipe(mealId, mealName, isHomePage = false) {
@@ -2121,6 +2246,38 @@ async function init() {
     document.getElementById('manage-chores-btn').addEventListener('click', () => {
         updateManageScreen();
         showScreen('manage-screen');
+    });
+
+    // Moolah screen
+    document.getElementById('moolah-btn').addEventListener('click', () => {
+        updateMoolahScreen();
+        showScreen('moolah-screen');
+    });
+
+    // Moolah job management
+    document.getElementById('add-moolah-btn').addEventListener('click', () => openModal('moolah-modal'));
+    document.getElementById('save-moolah').addEventListener('click', handleSaveMoolah);
+
+    // Moolah job list click handlers
+    document.getElementById('moolah-chore-list').addEventListener('click', (e) => {
+        const completeBtn = e.target.closest('.moolah-complete-btn');
+        const deleteBtn = e.target.closest('.moolah-delete-btn');
+
+        if (completeBtn) {
+            const jobId = parseInt(completeBtn.dataset.jobId);
+            openCompleteMoolahModal(jobId);
+        } else if (deleteBtn) {
+            const jobId = parseInt(deleteBtn.dataset.jobId);
+            handleDeleteMoolah(jobId);
+        }
+    });
+
+    // Complete moolah modal - person selection
+    document.querySelectorAll('.person-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const person = btn.dataset.person;
+            handleCompleteMoolah(person);
+        });
     });
 
     // Tabs

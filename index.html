@@ -42,6 +42,10 @@
                         <span class="subtitle">Chores</span>
                     </button>
                 </div>
+                <button class="manage-btn moolah-btn" id="moolah-btn">
+                    <span class="icon">💰</span>
+                    Make Some Moolah
+                </button>
                 <button class="manage-btn" id="manage-chores-btn">
                     <span class="icon">⚙️</span>
                     Manage Chores & Settings
@@ -144,6 +148,25 @@
                 <div class="chore-list" id="parent-chore-list">
                     <!-- Parent's chores will be populated here -->
                 </div>
+            </main>
+        </div>
+
+        <!-- Make Some Moolah Screen -->
+        <div id="moolah-screen" class="screen">
+            <header class="header">
+                <button class="back-btn" data-target="home-screen">←</button>
+                <h1>Make Some Moolah</h1>
+                <div class="header-spacer"></div>
+            </header>
+            <main class="main-content">
+                <p class="moolah-intro">One-time jobs to earn extra money!</p>
+                <div class="moolah-chore-list" id="moolah-chore-list">
+                    <!-- Moolah chores will be populated here -->
+                </div>
+                <button class="add-chore-btn" id="add-moolah-btn">
+                    <span class="icon">+</span>
+                    Add New Job
+                </button>
             </main>
         </div>
 
@@ -547,6 +570,70 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary close-modal">Cancel</button>
                     <button class="btn btn-primary" id="save-meal">Get Recipe</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Moolah Job Modal -->
+        <div id="moolah-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add Job</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Job Title</label>
+                        <input type="text" id="moolah-title" placeholder="e.g., Wash the car">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="moolah-description" placeholder="What needs to be done?" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Pay Amount</label>
+                        <div class="input-group large">
+                            <span class="currency">$</span>
+                            <input type="number" id="moolah-amount" min="0" step="0.50" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-moolah">Add Job</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Complete Moolah Job Modal -->
+        <div id="complete-moolah-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Job Complete!</h2>
+                    <button class="close-modal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="moolah-job-summary">
+                        <h3 id="complete-moolah-title">Job Title</h3>
+                        <p id="complete-moolah-description" class="moolah-job-desc"></p>
+                        <div class="moolah-pay-amount" id="complete-moolah-amount">$0.00</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Who did this job?</label>
+                        <div class="person-select-buttons">
+                            <button class="person-select-btn" data-person="kylie">
+                                <span class="avatar">K</span>
+                                <span>Kylie</span>
+                            </button>
+                            <button class="person-select-btn" data-person="parker">
+                                <span class="avatar">P</span>
+                                <span>Parker</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary close-modal">Cancel</button>
                 </div>
             </div>
         </div>
