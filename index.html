@@ -51,7 +51,7 @@
                     Manage Chores & Settings
                 </button>
 
-                <section class="home-section whats-to-eat-section">
+                <section class="home-section whats-to-eat-section hidden">
                     <h2 class="section-title">What's to Eat</h2>
                     <div class="recipe-search-form">
                         <input type="text" id="home-meal-input" class="meal-input" placeholder="What do you want to make?">
@@ -629,11 +629,36 @@
                                 <span class="avatar">P</span>
                                 <span>Parker</span>
                             </button>
+                            <button class="person-select-btn both-btn" data-person="both">
+                                <span class="avatar both-avatar">K+P</span>
+                                <span>Both</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="split-slider-section hidden" id="split-slider-section">
+                        <label>How should we split it?</label>
+                        <div class="split-display">
+                            <div class="split-person">
+                                <span class="split-avatar">K</span>
+                                <span class="split-name">Kylie</span>
+                                <span class="split-amount" id="kylie-split-amount">$0.00</span>
+                            </div>
+                            <div class="split-person">
+                                <span class="split-avatar">P</span>
+                                <span class="split-name">Parker</span>
+                                <span class="split-amount" id="parker-split-amount">$0.00</span>
+                            </div>
+                        </div>
+                        <input type="range" id="split-slider" min="0" max="100" value="50" class="split-slider">
+                        <div class="split-labels">
+                            <span>Kylie gets more</span>
+                            <span>Parker gets more</span>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary close-modal">Cancel</button>
+                    <button class="btn btn-primary hidden" id="confirm-split-btn">Confirm Split</button>
                 </div>
             </div>
         </div>

@@ -2220,12 +2220,13 @@ body {
 
 /* Make Some Moolah Styles */
 .moolah-btn {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
+    background: linear-gradient(135deg, #10b981, #059669);
     color: white;
+    margin-bottom: 16px;
 }
 
 .moolah-btn:active {
-    background: linear-gradient(135deg, #d97706, #b45309);
+    background: linear-gradient(135deg, #059669, #047857);
 }
 
 .moolah-intro {
@@ -2338,6 +2339,7 @@ body {
 
 .person-select-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     justify-content: center;
     margin-top: 12px;
@@ -2348,13 +2350,13 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 16px 24px;
+    padding: 12px 16px;
     background: white;
     border: 2px solid var(--gray-200);
     border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s;
-    min-width: 100px;
+    min-width: 85px;
 }
 
 .person-select-btn:hover {
@@ -2367,8 +2369,8 @@ body {
 }
 
 .person-select-btn .avatar {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: linear-gradient(135deg, #8b5cf6, #6366f1);
     color: white;
@@ -2376,12 +2378,111 @@ body {
     align-items: center;
     justify-content: center;
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
 }
 
 .person-select-btn span:last-child {
     font-weight: 600;
     color: var(--gray-700);
+}
+
+/* Both button */
+.both-btn .both-avatar {
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+/* Split slider section */
+.split-slider-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--gray-50);
+    border-radius: 12px;
+}
+
+.split-slider-section label {
+    display: block;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.split-display {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.split-person {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.split-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.split-name {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.split-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #10b981;
+}
+
+.split-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #8b5cf6 0%, #6366f1 50%, #8b5cf6 100%);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.split-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #6366f1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.split-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #6366f1;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.split-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--gray-500);
 }
 
 /* Responsive tweaks */

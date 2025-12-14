@@ -1027,7 +1027,29 @@ function openCompleteMoolahModal(jobId) {
     document.getElementById('complete-moolah-description').textContent = job.description || '';
     document.getElementById('complete-moolah-amount').textContent = formatCurrency(job.amount);
 
+    // Reset split slider section
+    document.getElementById('split-slider-section').classList.add('hidden');
+    document.getElementById('confirm-split-btn').classList.add('hidden');
+    document.getElementById('split-slider').value = 50;
+    updateSplitDisplay(job.amount, 50);
+
     openModal('complete-moolah-modal');
+}
+
+function updateSplitDisplay(totalAmount, kyliePercent) {
+    const kylieAmount = (totalAmount * kyliePercent) / 100;
+    const parkerAmount = totalAmount - kylieAmount;
+
+    document.getElementById('kylie-split-amount').textContent = formatCurrency(kylieAmount);
+    document.getElementById('parker-split-amount').textContent = formatCurrency(parkerAmount);
+}
+
+function handleSplitSliderChange() {
+    const job = appData.moolahJobs.find(j => j.id === currentMoolahJobId);
+    if (!job) return;
+
+    const kyliePercent = parseInt(document.getElementById('split-slider').value);
+    updateSplitDisplay(job.amount, kyliePercent);
 }
 
 function handleCompleteMoolah(person) {
@@ -1035,6 +1057,14 @@ function handleCompleteMoolah(person) {
 
     const job = appData.moolahJobs.find(j => j.id === currentMoolahJobId);
     if (!job) return;
+
+    // Handle "Both" selection - show slider
+    if (person === 'both') {
+        document.getElementById('split-slider-section').classList.remove('hidden');
+        document.getElementById('confirm-split-btn').classList.remove('hidden');
+        updateSplitDisplay(job.amount, 50);
+        return;
+    }
 
     const user = appData.users[person];
     const personName = person.charAt(0).toUpperCase() + person.slice(1);
@@ -1062,6 +1092,55 @@ function handleCompleteMoolah(person) {
     closeModal('complete-moolah-modal');
 
     alert(`Great job, ${personName}! ${formatCurrency(job.amount)} has been added to your balance!`);
+}
+
+function handleConfirmSplit() {
+    if (!currentMoolahJobId) return;
+
+    const job = appData.moolahJobs.find(j => j.id === currentMoolahJobId);
+    if (!job) return;
+
+    const kyliePercent = parseInt(document.getElementById('split-slider').value);
+    const kylieAmount = (job.amount * kyliePercent) / 100;
+    const parkerAmount = job.amount - kylieAmount;
+
+    const now = new Date().toISOString();
+
+    // Add to Kylie's balance and history
+    if (kylieAmount > 0) {
+        appData.users.kylie.balance += kylieAmount;
+        appData.users.kylie.transactions.unshift({
+            id: generateId(),
+            type: 'earning',
+            amount: kylieAmount,
+            description: `Moolah Job (split): ${job.title}`,
+            date: now
+        });
+    }
+
+    // Add to Parker's balance and history
+    if (parkerAmount > 0) {
+        appData.users.parker.balance += parkerAmount;
+        appData.users.parker.transactions.unshift({
+            id: generateId(),
+            type: 'earning',
+            amount: parkerAmount,
+            description: `Moolah Job (split): ${job.title}`,
+            date: now
+        });
+    }
+
+    // Remove the completed job
+    appData.moolahJobs = appData.moolahJobs.filter(j => j.id !== currentMoolahJobId);
+
+    currentMoolahJobId = null;
+
+    saveData();
+    updateMoolahScreen();
+    updateHomeScreen();
+    closeModal('complete-moolah-modal');
+
+    alert(`Great teamwork! Kylie gets ${formatCurrency(kylieAmount)} and Parker gets ${formatCurrency(parkerAmount)}!`);
 }
 
 async function handleGetRecipe(mealId, mealName, isHomePage = false) {
@@ -2279,6 +2358,10 @@ async function init() {
             handleCompleteMoolah(person);
         });
     });
+
+    // Split slider and confirm button
+    document.getElementById('split-slider').addEventListener('input', handleSplitSliderChange);
+    document.getElementById('confirm-split-btn').addEventListener('click', handleConfirmSplit);
 
     // Tabs
     document.querySelector('.tabs').addEventListener('click', handleTabClick);
