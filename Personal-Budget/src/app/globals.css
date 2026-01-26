@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Progress bar styles */
+.progress-bar {
+  @apply h-2 rounded-full bg-gray-200 overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-300;
+}
+
+/* Category colors */
+.bg-housing { background-color: #3B82F6; }
+.bg-utilities { background-color: #06B6D4; }
+.bg-food { background-color: #22C55E; }
+.bg-transportation { background-color: #F97316; }
+.bg-healthcare { background-color: #EF4444; }
+.bg-family { background-color: #EC4899; }
+.bg-debt { background-color: #8B5CF6; }
+.bg-personal { background-color: #EAB308; }
+.bg-misc { background-color: #6B7280; }
+
+/* Drag and drop styles */
+.drop-zone {
+  @apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors;
+}
+
+.drop-zone.drag-over {
+  @apply border-blue-500 bg-blue-50;
+}
